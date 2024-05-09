@@ -9,6 +9,7 @@ const (
 	DOMAIN_LABEL_SEPERATOR = "."
 	UDP_MESSAGE_SIZE_LIMIT = 512
 	MESSAGE_HEADER_LENGTH = 12
+	DOMAIN_NAME_PTR_PREFIX = "11"
 )
 
 const (
@@ -23,13 +24,18 @@ const (
 	OPCODE_STATUS Flag = 2
 
 	CLASS_IN ClassType = 1
+	CLASS_CH ClassType = 3
 
-	RC_NO_ERROR ResponseCode = 0
-	RC_FORMAT_ERROR ResponseCode = 1
-	RC_SERVER_FAILURE ResponseCode = 2
-	RC_NAME_ERROR ResponseCode = 3
-	RC_NOT_IMPLEMENTED ResponseCode = 4
+	RC_NOERROR ResponseCode = 0
+	RC_FORMERR ResponseCode = 1
+	RC_SERVFAIL ResponseCode = 2
+	RC_NXDOMAIN ResponseCode = 3
+	RC_NOTIMP ResponseCode = 4
 	RC_REFUSED ResponseCode = 5
+	RC_YXDOMAIN ResponseCode = 6
+	RC_XRRSET ResponseCode = 7
+	RC_NOTAUTH ResponseCode = 8
+	RC_NOTZONE ResponseCode = 9
 
 	MSG_REQUEST MessageType = 201
 	MSG_RESPONSE MessageType = 202

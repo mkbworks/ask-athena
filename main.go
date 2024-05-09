@@ -24,8 +24,13 @@ func main() {
 		os.Exit(1)
 	}
 
-	for _, name := range names {
-		fmt.Printf("%s,%s\n", name, strings.Join(resolver.Resolve(name, resolver.AllowedRRTypes[*t]), ""))
+	if resolver.IsAllowed(*t) {
+		for _, name := range names {
+			resolver.Resolve(name, resolver.GetRecordType(*t))
+		}
+	} else {
+		fmt.Printf("Given record type is not supported by the DNS resolver.\n")
+		os.Exit(1)
 	}
 
 	resolver.Close()

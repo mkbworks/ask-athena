@@ -5,7 +5,9 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"net"
+	"os"
 	"strconv"
 	"strings"
 )
@@ -30,6 +32,7 @@ func GetResolver() (*Resolver, error) {
 		return nil, err
 	}
 	resolver.RemoteServer = conn
+	resolver.logger = log.New(os.Stdout, "", log.Ldate | log.Ltime)
 	return &resolver, nil
 }
 
@@ -73,7 +76,7 @@ func PackBinary16(binary_value string) []byte {
 
 //Unpacks a stream of bytes into a uint16 number.
 func UnpackUInt16(buffer []byte) uint16 {
-	return_value := UnpackBinary16(buffer)
+	return_value := UnpackBinary(buffer)
 	number_value, err := strconv.ParseUint(return_value, 2, 16)
 	if err != nil {
 		panic(err)
@@ -81,8 +84,18 @@ func UnpackUInt16(buffer []byte) uint16 {
 	return uint16(number_value)
 }
 
+//Unpacks a stream of bytes into a uint32 number.
+func UnpackUInt32(buffer []byte) uint32 {
+	return_value := UnpackBinary(buffer)
+	number_value, err := strconv.ParseUint(return_value, 2, 32)
+	if err != nil {
+		panic(err)
+	}
+	return uint32(number_value)
+}
+
 //Unpacks a stream of bytes into a binary string value.
-func UnpackBinary16(buffer []byte) string {
+func UnpackBinary(buffer []byte) string {
 	return_value := ""
 	for _, octet := range buffer {
 		binary_string := fmt.Sprintf("%b", octet)
@@ -105,4 +118,11 @@ func GetBinary(number uint16, bit_count int) string {
 		panic(errors.New("bit count for the given number is larger than the required bit count"))
 	}
 	return binary_value
+}
+
+//Creates and returns a new Message instance.
+func GetMessage(mt MessageType) *Message {
+	message := Message{}
+	message.Initialize(mt)
+	return &message
 }

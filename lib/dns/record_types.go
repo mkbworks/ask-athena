@@ -1,8 +1,42 @@
 package dns
 
+//Identifies a protocol family or instance of a protocol.
 type ClassType uint16
+
+//Returns string representation of RR Class type.
+func (ct ClassType) String() string {
+	switch ct {
+	case CLASS_IN:
+		return "IN"
+	case CLASS_CH:
+		return "CH"
+	default:
+		return ""
+	}
+}
+
+//Represents a record type in DNS
 type RecordType uint16
 
+//Returns string representation of the DNS RecordType. 
+func (rt RecordType) String() string {
+	switch rt {
+	case TYPE_A:
+		return "A"
+	case TYPE_AAAA:
+		return "AAAA"
+	case TYPE_CNAME:
+		return "CNAME"
+	case TYPE_NS:
+		return "NS"
+	case TYPE_TXT:
+		return "TXT"
+	default:
+		return ""
+	}
+}
+
+//Maps a record type string  with its enumerated value.
 type RecordTypes map[string]RecordType
 
 //Fetches the key from RecordTypes instance, whose value matches 'recType'.
