@@ -3,30 +3,34 @@ package dns
 import (
 	"errors"
 	"net"
-	"log"
+	"fmt"
 )
 
 //Structure to represent a DNS Resolver.
 type Resolver struct {
 	RemoteServer *net.UDPConn
 	AllowedRRTypes RecordTypes
-	logger *log.Logger
 }
 
 //Queries the DNS server and fetches the 't' type record for hostname - 'name'.
 func (resolver *Resolver) Resolve(name string, t RecordType) {
 	recordType := resolver.AllowedRRTypes.GetKey(t)
 	if recordType != "" {
-		log.Printf("Attempting to fetch '%s' type record for %s", recordType, name)
+		fmt.Printf("Attempting to fetch '%s' type record for %s", recordType, name)
 		request := GetMessage(MSG_REQUEST)
+		fmt.Println("New DNS Request message has been created.")
 		response := GetMessage(MSG_RESPONSE)
 		request.NewQuestion(name, t)
+		fmt.Println("New question has been created and added to the DNS Request.")
 		requestBuffer := request.Pack()
-		log.Println("The request buffer generated is:", requestBuffer)
+		fmt.Println("The request buffer generated is:", requestBuffer)
 		resolver.Send(requestBuffer)
+		fmt.Println("DNS Request message has been sent to the target UDP Server.")
 		responseBuffer := resolver.Receive()
+		fmt.Println("The response buffer received is:", responseBuffer)
 		response.Unpack(responseBuffer)
-		log.Println(response.String())
+		fmt.Println("Answer received.")
+		fmt.Println(response.String())
 	} else {
 		panic(errors.New("given record type is not one of the acceptable types"))
 	}

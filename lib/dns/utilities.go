@@ -5,9 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"net"
-	"os"
 	"strconv"
 	"strings"
 )
@@ -32,7 +30,6 @@ func GetResolver() (*Resolver, error) {
 		return nil, err
 	}
 	resolver.RemoteServer = conn
-	resolver.logger = log.New(os.Stdout, "", log.Ldate | log.Ltime)
 	return &resolver, nil
 }
 

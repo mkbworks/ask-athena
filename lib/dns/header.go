@@ -101,6 +101,12 @@ func (hdr *Header) Initialize(mt MessageType) {
 	hdr.Opcode = OPCODE_QUERY
 	hdr.Rcode = RC_NOERROR
 	hdr.Zero = 0
+	hdr.SetRecursionDesired(true)
+}
+
+//Sets the Recursion Desired flag
+func (hdr *Header) SetRecursionDesired(value bool) {
+	hdr.RecursionDesired = value
 }
 
 //Sets the number of questions in the DNS Message.
