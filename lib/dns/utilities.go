@@ -5,31 +5,28 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"net"
 	"strconv"
 	"strings"
+	"net"
+	"path/filepath"
 )
 
 //Returns a new instance of Resolver. In case of any errors, it returns nil instead.
-func GetResolver() (*Resolver, error) {
+func GetResolver(RootServersPath string, CacheFilePath string) (*Resolver, error) {
+	isRootServerAbs := filepath.IsAbs(RootServersPath)
+	isCacheFilePathAbs := filepath.IsAbs(CacheFilePath)
+	if !isRootServerAbs {
+		return nil, errors.New("root server file path must be an absolute path")
+	}
+
+	if !isCacheFilePathAbs {
+		return nil, errors.New("cache file path must be an absolute path")
+	}
 	resolver := Resolver{}
-	resolver.AllowedRRTypes = RecordTypes{
-		"A":     TYPE_A,
-		"NS":    TYPE_NS,
-		"CNAME": TYPE_CNAME,
-		"TXT":   TYPE_TXT,
-		"AAAA":  TYPE_AAAA,
-	}
-	address_string := ROOT_SERVER_ADDRESS + ":" + strconv.Itoa(DNS_PORT_NUMBER)
-	udpAddr, err := net.ResolveUDPAddr(MESSAGE_PROTOCOL, address_string)
-	if err != nil {
-		return nil, err
-	}
-	conn, err := net.DialUDP(MESSAGE_PROTOCOL, nil, udpAddr)
-	if err != nil {
-		return nil, err
-	}
-	resolver.RemoteServer = conn
+	resolver.RootServers = BindFile{}
+	resolver.RootServers.Initialize(RootServersPath)
+	resolver.Cache = BindFile{}
+	resolver.Cache.Initialize(CacheFilePath)
 	return &resolver, nil
 }
 
@@ -118,8 +115,62 @@ func GetBinary(number uint16, bit_count int) string {
 }
 
 //Creates and returns a new Message instance.
-func GetMessage(mt MessageType) *Message {
+func NewMessage(mt MessageType) *Message {
 	message := Message{}
 	message.Initialize(mt)
 	return &message
+}
+
+//Creates a new resource record and returns a pointer to the Resource instance.
+func NewResourceRecord(dname string, ttl uint32, class string, recType string, data string) *Resource {
+	resource := Resource{}
+	resource.Initialize(dname, recType, class, ttl, data)
+	return &resource
+}
+
+//Parses the given string and returns its uint64 equivalent.
+func parseUIntString(value string, bitsize int) uint64 {
+	conv_value, err := strconv.ParseUint(value, 10, bitsize)
+	if err != nil {
+		panic(err)
+	}
+	return conv_value
+}
+
+//Converts the given byte stream to an IP Address string
+func getIPAddress(buffer []byte) string {
+	IP := net.IP(buffer)
+	return IP.String()
+}
+
+//Converts the given IP address string to a stream of bytes.
+func convertToBytes(IpAddress string, IpType string) []byte {
+	ip := net.ParseIP(IpAddress)
+	if ip == nil {
+		panic(errors.New("given ip address does not have a valid format"))
+	}
+	
+	if strings.EqualFold(IpType, "IPv4") {
+		ipv4 := ip.To4()
+		if ipv4 == nil {
+			panic(errors.New("ip address is not of type ipv4"))
+		}
+		return ipv4
+	} else if strings.EqualFold(IpType, "IPv6") {
+		ipv6 := ip.To16()
+		if ipv6 == nil {
+			panic(errors.New("ip address is not of type ipv6"))
+		}
+		return ipv6
+	} else {
+		panic(errors.New("incorrect ip type"))
+	}
+}
+
+//Returns a string representing the canonicalized value of given domain name.
+func Canonicalize(domainName string) string {
+	domainName = strings.Trim(domainName, DOMAIN_LABEL_SEPERATOR)
+	domainName = strings.ToLower(domainName)
+	domainName += DOMAIN_LABEL_SEPERATOR
+	return domainName
 }

@@ -2,79 +2,181 @@ package dns
 
 import (
 	"errors"
-	"net"
-	"fmt"
 )
+
+//Type to denote the type of DNS Server to send request to.
+type ServerType uint8
 
 //Structure to represent a DNS Resolver.
 type Resolver struct {
-	RemoteServer *net.UDPConn
-	AllowedRRTypes RecordTypes
+	//References the BIND file containing the DNS root server details.
+	RootServers BindFile
+	//References the BIND file containing all the cached resource records.
+	Cache BindFile
 }
 
-//Queries the DNS server and fetches the 't' type record for hostname - 'name'.
-func (resolver *Resolver) Resolve(name string, t RecordType) {
-	recordType := resolver.AllowedRRTypes.GetKey(t)
+//Queries the DNS server and fetches the 't' type record for 'name'.
+func (resolver *Resolver) Resolve(name string, t RecordType) []string {
+	recordType := AllowedRRTypes.GetKey(t)
 	if recordType != "" {
-		fmt.Printf("Attempting to fetch '%s' type record for %s", recordType, name)
-		request := GetMessage(MSG_REQUEST)
-		fmt.Println("New DNS Request message has been created.")
-		response := GetMessage(MSG_RESPONSE)
-		request.NewQuestion(name, t)
-		fmt.Println("New question has been created and added to the DNS Request.")
-		requestBuffer := request.Pack()
-		fmt.Println("The request buffer generated is:", requestBuffer)
-		resolver.Send(requestBuffer)
-		fmt.Println("DNS Request message has been sent to the target UDP Server.")
-		responseBuffer := resolver.Receive()
-		fmt.Println("The response buffer received is:", responseBuffer)
-		response.Unpack(responseBuffer)
-		fmt.Println("Answer received.")
-		fmt.Println(response.String())
+		rootServerAddresses := resolver.getRootServer(TYPE_A)		
+		TldNameServers := resolver.GetNameServer(name, t, rootServerAddresses)
+		AuthNameServers := resolver.GetNameServer(name, t, TldNameServers)
+		values := resolver.GetAuthoritativeData(name, t, AuthNameServers)
+		return values
 	} else {
 		panic(errors.New("given record type is not one of the acceptable types"))
 	}
 }
 
-//Sends the request stream generated to the DNS server.
-func (resolver *Resolver) Send(request []byte) {
-	if len(request) > UDP_MESSAGE_SIZE_LIMIT {
-		panic(errors.New("request message size exceeds 512 bytes"))
-	}
-	
-	_, err := resolver.RemoteServer.Write(request)
-	if err != nil {
-		panic(err)
-	}
-}
-
-//Receives the response back from the DNS Server.
-func (resolver *Resolver) Receive() []byte {
-	buffer := make([]byte, UDP_MESSAGE_SIZE_LIMIT)
-	byteCount, err := resolver.RemoteServer.Read(buffer)
-	if err != nil {
-		panic(err)
-	}
-	return buffer[:byteCount]
-}
-
 //Returns true if the record type provided is accepted by the resolver, else returns false.
 func (resolver *Resolver) IsAllowed(recordType string) bool {
-	_, exists := resolver.AllowedRRTypes[recordType]
+	_, exists := AllowedRRTypes[recordType]
 	return exists
 }
 
 //Returns the record type object for the given type string.
 func (resolver *Resolver) GetRecordType(recordType string) RecordType {
-	rt, exists := resolver.AllowedRRTypes[recordType]
-	if exists {
-		return rt
-	} else {
-		panic(errors.New("record type could not be found in the list of record types supported by DNS resolver"))
-	}
+	return AllowedRRTypes.GetRecordType(recordType)
 }
 
-//Closes the RemoteServer instance associated with the resolver.
-func (resolver *Resolver) Close() {
-	resolver.RemoteServer.Close()
+//Returns the list of all IPv4 addresses for the root DNS server.
+func (resolver *Resolver) getRootServer(recType RecordType) []string {
+	rootServerAddress := make([]string, 0)
+	for _, rr := range resolver.RootServers.ResourceRecords {
+		if rr.Type == recType {
+			rootServerAddress = append(rootServerAddress, rr.GetData())
+		}
+	}
+
+	if len(rootServerAddress) == 0 {
+		panic(errors.New("root dns server - ipv4 address not found"))
+	}
+
+	return rootServerAddress
+}
+
+//Returns the name server details returned by either the Root DNS or TLD Name servers for the domain name.
+func (resolver *Resolver) GetNameServer(name string, t RecordType, servers []string) []string {
+	request := NewMessage(MSG_REQUEST)
+	request.NewQuestion(name, t)
+	NameServers := make([]string, 0)
+	for _, address := range servers {
+		response := resolver.GetResponse(request, address)
+		NsHosts, isExists := response.GetRRValuesFor(name, TYPE_NS)
+		if !isExists {
+			continue
+		}
+
+		for _, NsHost := range NsHosts {
+			NsIps, exists := response.GetRRValuesFor(NsHost, TYPE_A)
+			if exists {
+				NameServers = append(NameServers, NsIps...)
+			} else {
+				values := resolver.ResolveNameServer(NsHost, servers)
+				NameServers = append(NameServers, values...)
+			}
+		}
+
+		if len(NameServers) > 0 {
+			break
+		}
+	}
+
+	return NameServers
+}
+
+//Returns the requested information for the given domain name by querying the authoritative DNS servers.
+func (resolver *Resolver) GetAuthoritativeData(name string, t RecordType, servers []string) []string {
+	request := NewMessage(MSG_REQUEST)
+	request.NewQuestion(name, t)
+	AuthoritativeData := make([]string, 0)
+	for _, address := range servers {
+		response := resolver.GetResponse(request, address)
+		values, exists := response.GetRRValuesFor(name, t)
+		if exists {
+			return values
+		}
+
+		NsHosts, exists := response.GetRRValuesFor(name, TYPE_NS)
+		if exists {
+			NameServerIps := make([]string, 0)
+			for _, NsHost := range NsHosts {
+				NsIps, IsAlreadyThere := response.GetRRValuesFor(NsHost, TYPE_A)
+				if IsAlreadyThere {
+					NameServerIps = append(NameServerIps, NsIps...)
+				} else {
+					NameServerIps = append(NameServerIps, resolver.ResolveNameServer(NsHost, servers)...)
+				}
+
+				if len(NameServerIps) > 0 {
+					break
+				}
+			}
+
+			return resolver.GetAuthoritativeData(name, t, NameServerIps) 
+		}
+
+		Cnames, exists := response.GetRRValuesFor(name, TYPE_CNAME)
+		if exists {
+			for _, cname := range Cnames {
+				resp := response.GetIPForCNAME(cname, t)
+				if len(resp) > 0 {
+					AuthoritativeData = append(AuthoritativeData, resp...)
+				} else {
+					AuthoritativeData = append(AuthoritativeData, resolver.GetAuthoritativeData(cname, t, servers)...)
+				}
+			}
+		}
+
+		if len(AuthoritativeData) > 0 {
+			return AuthoritativeData
+		}
+	}
+
+	return AuthoritativeData
+}
+
+//Resolves the given name server and returns its IPv4 addresses. This function is written with the assumption that the name server host name itself does not have a CNAME record attached to it and can directly fetch type-A record.
+func (resolver *Resolver) ResolveNameServer(name string, servers []string) []string {
+	request := NewMessage(MSG_REQUEST)
+	request.NewQuestion(name, TYPE_A)
+	IPv4Addresses := make([]string, 0)
+	for _, server := range servers {
+		response := resolver.GetResponse(request, server)
+		values, exists := response.GetRRValuesFor(name, TYPE_A)
+		if exists {
+			IPv4Addresses = append(IPv4Addresses, values...)
+			break
+		}
+		/*
+		values, exists = response.GetRRValuesFor(name, TYPE_NS)
+		if exists {
+			for _, value := range values {
+				IPv4Addresses = append(IPv4Addresses, resolver.ResolveNameServer(value, servers)...)
+			}
+		}
+		if len(IPv4Addresses) > 0 {
+			break
+		} */
+	}
+
+	return IPv4Addresses
+}
+
+//Sends the request to the target DNS server and receives a response over the same connection.
+func (resolver *Resolver) GetResponse(request *Message, ServerAddress string) *Message {
+	SendBuffer := request.Pack()
+	udpConnect := UdpConnect{}
+	udpConnect.ConnectTo(ServerAddress, DNS_PORT_NUMBER)
+	var response *Message
+	for validResponse := false; !validResponse; {
+		udpConnect.Send(SendBuffer)
+		receiveBuffer := udpConnect.Receive()
+		response = NewMessage(MSG_RESPONSE)
+		response.Unpack(receiveBuffer)
+		validResponse = response.IsResponse(request)
+	}
+	udpConnect.Close()
+	return response
 }

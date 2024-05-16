@@ -1,7 +1,6 @@
 package dns
 
 const (
-	ROOT_SERVER_ADDRESS = "8.8.8.8"
 	DNS_PORT_NUMBER = 53
 	MESSAGE_PROTOCOL = "udp"
 	DOMAIN_LABEL_LIMIT = 63
@@ -10,6 +9,8 @@ const (
 	UDP_MESSAGE_SIZE_LIMIT = 512
 	MESSAGE_HEADER_LENGTH = 12
 	DOMAIN_NAME_PTR_PREFIX = "11"
+	WHITESPACE = " "
+	NEWLINE_SEPERATOR = "\n"
 )
 
 const (
@@ -39,4 +40,21 @@ const (
 
 	MSG_REQUEST MessageType = 201
 	MSG_RESPONSE MessageType = 202
+
+	ROOT_SERVER ServerType = 1
+	TLD_SERVER ServerType = 2
+	AUTHORITATIVE_SERVER ServerType = 3
 )
+
+var AllowedRRTypes RecordTypes = RecordTypes{
+	"A":     TYPE_A,
+	"NS":    TYPE_NS,
+	"CNAME": TYPE_CNAME,
+	"TXT":   TYPE_TXT,
+	"AAAA":  TYPE_AAAA,
+}
+
+var AllowedClassTypes ClassTypes = ClassTypes{
+	"IN": CLASS_IN,
+	"CH": CLASS_CH,
+}

@@ -1,3 +1,3 @@
-module github.com/maheshkumaarbalaji/project-athena
+module github.com/maheshkumaarbalaji/ask-athena
 
 go 1.22.2

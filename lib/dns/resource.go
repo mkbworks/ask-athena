@@ -2,10 +2,10 @@ package dns
 
 import (
 	"fmt"
-	"net"
+	"strings"
 )
 
-//Contains all the functions to implement for parsing a DNS message body.
+//Feature(s) to be implemented for a DNS Resource Body.
 type ResourceBody interface {
 	//Unpacks a stream of bytes into a resource record object.
 	UnpackBody(buffer []byte, offset int, dataLength int) int
@@ -25,6 +25,44 @@ type Resource struct {
 	RdLength uint16
 	//Resource Record body.
 	Rdata ResourceBody
+}
+
+//Initialize the instance of Resource.
+func (resource *Resource) Initialize(domainName string, recType string, classType string, ttl uint32, data string) {
+	resource.Name = DomainName{}
+	resource.Name.Initialize()
+	resource.Name.Pack(domainName)
+	resource.Type = AllowedRRTypes.GetRecordType(recType)
+	resource.Class = AllowedClassTypes.GetClassType(classType)
+	resource.TTL = ttl
+	if resource.Type == TYPE_A {
+		resource.RdLength = uint16(len(convertToBytes(data, "IPv4")))
+		ar := AResource{}
+		ar.IPv4Address = strings.TrimSpace(data)
+		resource.Rdata = &ar
+	} else if resource.Type == TYPE_AAAA {
+		resource.RdLength = uint16(len(convertToBytes(data, "IPv6")))
+		aaar := AAAAResource{}
+		aaar.IPv6Address = strings.TrimSpace(data)
+		resource.Rdata = &aaar
+	} else if resource.Type == TYPE_CNAME {
+		cname := CNAMEResource{}
+		cname.name = DomainName{}
+		cname.name.Pack(data)
+		resource.RdLength = uint16(len(cname.name.Data))
+		resource.Rdata = &cname
+	} else if resource.Type == TYPE_NS {
+		ns := NSResource{}
+		ns.NameServer = DomainName{}
+		ns.NameServer.Pack(data)
+		resource.RdLength = uint16(len(ns.NameServer.Data))
+		resource.Rdata = &ns
+	} else if resource.Type == TYPE_TXT {
+		txt := TXTResource{}
+		txt.TextValue = strings.TrimSpace(data)
+		resource.RdLength = uint16(len(data))
+		resource.Rdata = &txt
+	}
 }
 
 //Unpacks a stream of bytes to a resource instance.
@@ -75,7 +113,46 @@ func (resource *Resource) String() string {
 	} else {
 		value_string = ""
 	}
-	return fmt.Sprintf("%s \t %s \t %s \t %d \t %s\n", resource.Name.String(), resource.Class.String(), resource.Type.String(), int(resource.TTL), value_string)
+	return fmt.Sprintf("%s \t %d \t %s \t %s \t %s\n", resource.Name.String(), int(resource.TTL) , resource.Class.String(), resource.Type.String(), value_string)
+}
+
+//Returns a string representation of the Resource instance without TTL.
+func (resource *Resource) StringWithoutTTL() string {
+	value_string := ""
+	if obj, ok := resource.Rdata.(*AResource); ok {
+		value_string = obj.String()
+	} else if obj, ok := resource.Rdata.(*AAAAResource); ok {
+		value_string = obj.String()
+	} else if obj, ok := resource.Rdata.(*CNAMEResource); ok {
+		value_string = obj.String()
+	} else if obj, ok := resource.Rdata.(*NSResource); ok {
+		value_string = obj.String()
+	} else if obj, ok := resource.Rdata.(*TXTResource); ok {
+		value_string = obj.String()
+	} else {
+		value_string = ""
+	}
+	return fmt.Sprintf("%s \t %s \t %s \t %s\n", resource.Name.String(), resource.Class.String(), resource.Type.String(), value_string)
+}
+
+
+//Gets the value in the resource body.
+func (resource *Resource) GetData() string {
+	value_string := ""
+	if obj, ok := resource.Rdata.(*AResource); ok {
+		value_string = obj.IPv4Address
+	} else if obj, ok := resource.Rdata.(*AAAAResource); ok {
+		value_string = obj.IPv6Address
+	} else if obj, ok := resource.Rdata.(*CNAMEResource); ok {
+		value_string = obj.name.Value
+	} else if obj, ok := resource.Rdata.(*NSResource); ok {
+		value_string = obj.NameServer.Value
+	} else if obj, ok := resource.Rdata.(*TXTResource); ok {
+		value_string = obj.TextValue
+	} else {
+		value_string = ""
+	}
+	return value_string
 }
 
 //Represents an A-type Resource Record value.
@@ -86,9 +163,8 @@ type AResource struct {
 //Unpacks a stream of bytes into a A-type resource record value.
 func (ar *AResource) UnpackBody(buffer []byte, offset int, dataLength int) int {
 	ipBytes := buffer[offset: offset + dataLength]
-	ipAddress := net.IP(ipBytes)
-	ar.IPv4Address = ipAddress.String()
-	return offset
+	ar.IPv4Address = getIPAddress(ipBytes)
+	return offset + dataLength
 }
 
 //Returns the string representation of A-type record data
@@ -104,9 +180,8 @@ type AAAAResource struct {
 //Unpacks a stream of bytes into a AAAA-type resource record value.
 func (aaaar *AAAAResource) UnpackBody(buffer []byte, offset int, dataLength int) int {
 	ipBytes := buffer[offset: offset + dataLength]
-	ipAddress := net.IP(ipBytes)
-	aaaar.IPv6Address = ipAddress.String()
-	return offset
+	aaaar.IPv6Address = getIPAddress(ipBytes)
+	return offset + dataLength
 }
 
 //Returns the string representation of AAAA-type data.

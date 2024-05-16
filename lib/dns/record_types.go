@@ -1,5 +1,7 @@
 package dns
 
+import "errors"
+
 //Identifies a protocol family or instance of a protocol.
 type ClassType uint16
 
@@ -57,4 +59,25 @@ func (recTypes *RecordTypes) GetAllKeys() []string {
 		keys = append(keys, key)
 	}
 	return keys
+}
+
+//Gets the record type associated with the given string
+func (recTypes RecordTypes) GetRecordType(key string) RecordType {
+	recType, ok := recTypes[key]
+	if !ok {
+		panic(errors.New("record type not available"))
+	}
+	return recType
+}
+
+//Maps a class type string with its enumerated value.
+type ClassTypes map[string]ClassType
+
+//Gets the class type associated with the given string.
+func (clsTypes ClassTypes) GetClassType(key string) ClassType {
+	clsType, ok := clsTypes[key]
+	if !ok {
+		panic(errors.New("class type not available"))
+	}
+	return clsType
 }

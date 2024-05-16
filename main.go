@@ -5,20 +5,27 @@ import (
 	"flag"
 	"strings"
 	"os"
-	"github.com/maheshkumaarbalaji/project-athena/lib/dns"
+	"path/filepath"
+	"github.com/maheshkumaarbalaji/ask-athena/lib/dns"
 )
 
 func main() {
 	t := flag.String("type", "A", "the record type to query for each domain name")
 	flag.Parse()
 	names := flag.Args()
-	fmt.Printf("Domain name(s) to be resolved: %s\n", strings.Join(names, " , "))
 	if len(names) == 0 {
 		fmt.Println("Not enough arguments, must pass in at least one name")
 		os.Exit(1)
 	}
+	CurrentDirectory, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error occurred while getting current working directory: " + err.Error())
+		os.Exit(1)
+	}
 
-	resolver, err := dns.GetResolver()
+	CacheFilePath := filepath.Join(CurrentDirectory, "assets", "resolver-cache.conf")
+	RootServersPath := filepath.Join(CurrentDirectory, "assets", "root-servers.conf")
+	resolver, err := dns.GetResolver(RootServersPath, CacheFilePath)
 	if err != nil {
 		fmt.Printf("Error occurred while fetching DNS Resolver Instance: %s\n", err.Error())
 		os.Exit(1)
@@ -26,12 +33,11 @@ func main() {
 
 	if resolver.IsAllowed(*t) {
 		for _, name := range names {
-			resolver.Resolve(name, resolver.GetRecordType(*t))
+			values := resolver.Resolve(name, resolver.GetRecordType(*t))
+			fmt.Printf("%s\t\t\t%s\n", name, strings.Join(values, "  "))
 		}
 	} else {
 		fmt.Printf("Given record type is not supported by the DNS resolver.\n")
 		os.Exit(1)
 	}
-
-	resolver.Close()
 }

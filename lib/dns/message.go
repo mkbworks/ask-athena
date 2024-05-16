@@ -1,8 +1,6 @@
 package dns
 
-import (
-	"fmt"
-)
+import "strings"
 
 //Represents the type of DNS Message - Request or Response.
 type MessageType uint8
@@ -31,7 +29,7 @@ func (msg *Message) Initialize(mt MessageType) {
 	msg.Additional = make([]Resource, 0)
 }
 
-//Set Message values for given domain name and dns record type.
+//Creates a new question and adds it to the DNS Message instance.
 func (msg *Message) NewQuestion(name string, recType RecordType) {
 	question := Question{}
 	question.Set(name, recType)
@@ -42,71 +40,56 @@ func (msg *Message) NewQuestion(name string, recType RecordType) {
 
 //Pack the message as a sequence of octets.
 func (msg *Message) Pack() []byte {
-	fmt.Println("Started packing DNS message.")
 	buffer := make([]byte, 0)
 	buffer = append(buffer, msg.Header.Pack()...)
-	fmt.Println("DNS Message header has been packed successfully.")
 	if msg.Header.QdCount > 0 {
 		for _, que := range msg.Questions {
 			buffer = append(buffer, que.Pack()...)
 		}
 	}
-	fmt.Println("DNS Question record has been packed into the DNS Message.")
-	fmt.Println("DNS Message packing completed.")
 	return buffer
 }
 
 //Unpack the sequence of bytes to a Message instance.
 func (msg *Message) Unpack(response []byte) {
 	offset := 0
-	fmt.Println("DNS Message unpacking process has started.")
-	fmt.Printf("Offset value before starting Header processing = %d\n", offset)
 	offset = msg.Header.Unpack(response, offset)
-	fmt.Printf("Header unpacking completed. Offset value before starting Question unpack = %d\n", offset)
-	fmt.Printf("There are %d questions waiting to be parsed now.\n", int(msg.Header.QdCount))
 	if msg.Header.QdCount > 0 {
 		for index := 1; index <= int(msg.Header.QdCount); index++ {
 			question := Question{}
 			offset = question.Unpack(response, offset)
 			msg.Questions = append(msg.Questions, question)
-			fmt.Printf("Question no %d parsing completed. Current Offset = %d\n", index, offset)
 		}
 	}
 
-	fmt.Printf("There are %d answers waiting to be parsed now.\n", int(msg.Header.AnCount))
 	if msg.Header.AnCount > 0 {
 		for index := 1; index <= int(msg.Header.AnCount); index++ {
 			answer := Resource{}
 			offset = answer.Unpack(response, offset)
 			msg.Answers = append(msg.Answers, answer)
-			fmt.Printf("Answer no %d parsing completed. Current Offset = %d\n", index, offset)
 		}
 	}
 
-	fmt.Printf("There are %d authoritative records waiting to be parsed now.\n", int(msg.Header.NsCount))
 	if msg.Header.NsCount > 0 {
-		for index := 1; index <= int(msg.Header.AnCount); index++ {
+		for index := 1; index <= int(msg.Header.NsCount); index++ {
 			authoritative := Resource{}
 			offset = authoritative.Unpack(response, offset)
 			msg.Authoritative = append(msg.Authoritative, authoritative)
-			fmt.Printf("Authoritative record no %d parsing completed. Current Offset = %d\n", index, offset)
 		}
 	}
 
-	fmt.Printf("There are %d additional records waiting to be parsed now.\n", int(msg.Header.ArCount))
 	if msg.Header.ArCount > 0 {
-		for index := 1; index <= int(msg.Header.AnCount); index++ {
+		for index := 1; index <= int(msg.Header.ArCount); index++ {
 			additional := Resource{}
 			offset = additional.Unpack(response, offset)
 			msg.Additional = append(msg.Additional, additional)
-			fmt.Printf("Additional record no %d parsing completed. Current Offset = %d\n", index, offset)
 		}
 	}
 }
 
 //Returns a string representation of the DNS Message instance. 
 func (msg *Message) String() string {
-	string_value := fmt.Sprintf("%s\n", msg.Header.String())
+	string_value := msg.Header.String() + "\n"
 	if msg.Header.QdCount > 0 {
 		string_value += "QUESTION SECTION:\n"
 		for _, que := range msg.Questions {
@@ -136,8 +119,73 @@ func (msg *Message) String() string {
 		for _, add := range msg.Additional {
 			string_value += add.String()
 		}
-		string_value += "\n"
 	}
 
 	return string_value
+}
+
+//Checks if the given resource is a response for the DNS question provided in parameter.
+func (msg *Message) IsResponse(request *Message) bool {
+	if !msg.Header.IsResponse {
+		return false
+	}
+
+	if msg.Header.Identifier != request.Header.Identifier {
+		return false
+	}
+
+	return true
+}
+
+//Gets all the resource record values in the message, matching the given domain name and record type.
+func (msg *Message) GetRRValuesFor(domainName string, recType RecordType) ([]string, bool) {
+	rrValues := make([]string, 0)
+	domainName = Canonicalize(domainName)
+	if msg.Header.AnCount > 0 {
+		for _, ans := range msg.Answers {
+			if ans.Type == recType && (strings.EqualFold(domainName, ans.Name.Value) || strings.Contains(domainName, ans.Name.Value)) {
+				rrValues = append(rrValues, ans.GetData())
+			}
+		}
+	}
+
+	if msg.Header.NsCount > 0 {
+		for _, auth := range msg.Authoritative {
+			if auth.Type == recType && (strings.EqualFold(domainName, auth.Name.Value) || strings.Contains(domainName, auth.Name.Value)) {
+				rrValues = append(rrValues, auth.GetData())
+			}
+		}
+	}
+
+	if msg.Header.ArCount > 0 {
+		for _, add := range msg.Additional {
+			if add.Type == recType && (strings.EqualFold(domainName, add.Name.Value) || strings.Contains(domainName, add.Name.Value)) {
+				rrValues = append(rrValues, add.GetData())
+			}
+		}
+	}
+
+	if len(rrValues) == 0 {
+		return nil, false
+	} 
+
+	return rrValues, true
+}
+
+//Resolves the given domain name and returns its corresponding IPv4 or IPv6 address.
+func (msg *Message) GetIPForCNAME(name string, recType RecordType) []string {
+	values, exists := msg.GetRRValuesFor(name, recType)
+	if exists {
+		return values
+	}
+
+	addresses := make([]string, 0)
+	values, exists = msg.GetRRValuesFor(name, TYPE_CNAME)
+	if exists {
+		for _, value := range values {
+			addresses = append(addresses, msg.GetIPForCNAME(value, recType)...)
+		}
+	}
+
+	return addresses
 }
