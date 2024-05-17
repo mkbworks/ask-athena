@@ -21,3 +21,5 @@
 go.work
 # Go Executable file created on build
 ask-athena
+# Temporary log files generated
+*.log

@@ -3,40 +3,51 @@ package dns
 import (
 	"crypto/rand"
 	"encoding/binary"
-	"errors"
 	"fmt"
+	"log"
+	"net"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"net"
-	"path/filepath"
 )
 
 //Returns a new instance of Resolver. In case of any errors, it returns nil instead.
-func GetResolver(RootServersPath string, CacheFilePath string) (*Resolver, error) {
+func GetResolver(RootServersPath string, CacheFilePath string, LogFilePath string) (*Resolver, error) {
 	isRootServerAbs := filepath.IsAbs(RootServersPath)
 	isCacheFilePathAbs := filepath.IsAbs(CacheFilePath)
 	if !isRootServerAbs {
-		return nil, errors.New("root server file path must be an absolute path")
+		return nil, ErrNotAbsolutePath
 	}
 
 	if !isCacheFilePathAbs {
-		return nil, errors.New("cache file path must be an absolute path")
+		return nil, ErrNotAbsolutePath
 	}
 	resolver := Resolver{}
 	resolver.RootServers = BindFile{}
-	resolver.RootServers.Initialize(RootServersPath)
+	err := resolver.RootServers.Initialize(RootServersPath)
+	if err != nil {
+		return nil, err
+	}
 	resolver.Cache = BindFile{}
-	resolver.Cache.Initialize(CacheFilePath)
+	err = resolver.Cache.Initialize(CacheFilePath)
+	if err != nil {
+		return nil, err
+	}
+	logFileHandler, err := os.Create(LogFilePath)
+	if err != nil {
+		return nil, err
+	}
+	resolver.Logger = log.New(logFileHandler, "", log.Ldate | log.Ltime)
+	resolver.Logger.Println("Local records have been moved from file to memory.")
+	resolver.Logger.Println("Root DNS Server records have been moved from BIND file to memory.")
 	return &resolver, nil
 }
 
 //Generates a random 16-bit integer as DNS Message Id.
 func Id() uint16 {
 	var Identifier uint16
-	err := binary.Read(rand.Reader, binary.BigEndian, &Identifier)
-	if err != nil {
-		panic(err)
-	}
+	binary.Read(rand.Reader, binary.BigEndian, &Identifier)
 	return Identifier
 }
 
@@ -55,14 +66,8 @@ func PackBinary16(binary_value string) []byte {
 	}
 	ms_octet_string := binary_value[:8]
 	ls_octet_string := binary_value[8:]
-	ms_octet_value, err := strconv.ParseUint(ms_octet_string, 2, 8)
-	if err != nil {
-		panic(err)
-	}
-	ls_octet_value, err := strconv.ParseUint(ls_octet_string, 2, 8)
-	if err != nil {
-		panic(err)
-	}
+	ms_octet_value, _ := strconv.ParseUint(ms_octet_string, 2, 8)
+	ls_octet_value, _ := strconv.ParseUint(ls_octet_string, 2, 8)
 	buffer = append(buffer, byte(ms_octet_value))
 	buffer = append(buffer, byte(ls_octet_value))
 	return buffer
@@ -71,20 +76,14 @@ func PackBinary16(binary_value string) []byte {
 //Unpacks a stream of bytes into a uint16 number.
 func UnpackUInt16(buffer []byte) uint16 {
 	return_value := UnpackBinary(buffer)
-	number_value, err := strconv.ParseUint(return_value, 2, 16)
-	if err != nil {
-		panic(err)
-	}
+	number_value, _ := strconv.ParseUint(return_value, 2, 16)
 	return uint16(number_value)
 }
 
 //Unpacks a stream of bytes into a uint32 number.
 func UnpackUInt32(buffer []byte) uint32 {
 	return_value := UnpackBinary(buffer)
-	number_value, err := strconv.ParseUint(return_value, 2, 32)
-	if err != nil {
-		panic(err)
-	}
+	number_value, _ := strconv.ParseUint(return_value, 2, 32)
 	return uint32(number_value)
 }
 
@@ -109,7 +108,7 @@ func GetBinary(number uint16, bit_count int) string {
 		padding_length := bit_count - len(binary_value)
 		binary_value = strings.Repeat("0", padding_length) + binary_value
 	} else if len(binary_value) > bit_count {
-		panic(errors.New("bit count for the given number is larger than the required bit count"))
+		return ""
 	}
 	return binary_value
 }
@@ -130,10 +129,7 @@ func NewResourceRecord(dname string, ttl uint32, class string, recType string, d
 
 //Parses the given string and returns its uint64 equivalent.
 func parseUIntString(value string, bitsize int) uint64 {
-	conv_value, err := strconv.ParseUint(value, 10, bitsize)
-	if err != nil {
-		panic(err)
-	}
+	conv_value, _ := strconv.ParseUint(value, 10, bitsize)
 	return conv_value
 }
 
@@ -145,25 +141,26 @@ func getIPAddress(buffer []byte) string {
 
 //Converts the given IP address string to a stream of bytes.
 func convertToBytes(IpAddress string, IpType string) []byte {
+	emptyResponse := make([]byte, 0)
 	ip := net.ParseIP(IpAddress)
 	if ip == nil {
-		panic(errors.New("given ip address does not have a valid format"))
+		return emptyResponse
 	}
 	
 	if strings.EqualFold(IpType, "IPv4") {
 		ipv4 := ip.To4()
 		if ipv4 == nil {
-			panic(errors.New("ip address is not of type ipv4"))
+			return emptyResponse
 		}
 		return ipv4
 	} else if strings.EqualFold(IpType, "IPv6") {
 		ipv6 := ip.To16()
 		if ipv6 == nil {
-			panic(errors.New("ip address is not of type ipv6"))
+			return emptyResponse
 		}
 		return ipv6
 	} else {
-		panic(errors.New("incorrect ip type"))
+		return emptyResponse
 	}
 }
 

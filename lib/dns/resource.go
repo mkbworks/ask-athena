@@ -116,8 +116,8 @@ func (resource *Resource) String() string {
 	return fmt.Sprintf("%s \t %d \t %s \t %s \t %s\n", resource.Name.String(), int(resource.TTL) , resource.Class.String(), resource.Type.String(), value_string)
 }
 
-//Returns a string representation of the Resource instance without TTL.
-func (resource *Resource) StringWithoutTTL() string {
+//Returns a string representation of the Resource instance for caching
+func (resource *Resource) CacheString() string {
 	value_string := ""
 	if obj, ok := resource.Rdata.(*AResource); ok {
 		value_string = obj.String()
@@ -132,7 +132,14 @@ func (resource *Resource) StringWithoutTTL() string {
 	} else {
 		value_string = ""
 	}
-	return fmt.Sprintf("%s \t %s \t %s \t %s\n", resource.Name.String(), resource.Class.String(), resource.Type.String(), value_string)
+	values := make([]string, 0)
+	values = append(values, resource.Name.String())
+	values = append(values, fmt.Sprintf("%d", int(resource.TTL)))
+	values = append(values, resource.Class.String())
+	values = append(values, resource.Type.String())
+	values = append(values, value_string)
+
+	return strings.Join(values, WHITESPACE)
 }
 
 

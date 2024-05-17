@@ -137,7 +137,7 @@ func (hdr *Header) PackFlag() []byte {
 	} else {
 		flag_binary += "0"
 	}
-
+	
 	flag_binary += GetBinary(uint16(hdr.Opcode), 4)
 
 	if hdr.Authoritative {

@@ -1,7 +1,5 @@
 package dns
 
-import "strings"
-
 //Represents the type of DNS Message - Request or Response.
 type MessageType uint8
 
@@ -137,55 +135,54 @@ func (msg *Message) IsResponse(request *Message) bool {
 	return true
 }
 
-//Gets all the resource record values in the message, matching the given domain name and record type.
-func (msg *Message) GetRRValuesFor(domainName string, recType RecordType) ([]string, bool) {
-	rrValues := make([]string, 0)
-	domainName = Canonicalize(domainName)
+
+func (msg *Message) FindAnswerRecords(recType RecordType) ([]Resource, bool) {
+	rrValues := make([]Resource, 0)
 	if msg.Header.AnCount > 0 {
 		for _, ans := range msg.Answers {
-			if ans.Type == recType && (strings.EqualFold(domainName, ans.Name.Value) || strings.Contains(domainName, ans.Name.Value)) {
-				rrValues = append(rrValues, ans.GetData())
+			if ans.Type == recType {
+				rrValues = append(rrValues, ans)
 			}
 		}
 	}
 
-	if msg.Header.NsCount > 0 {
-		for _, auth := range msg.Authoritative {
-			if auth.Type == recType && (strings.EqualFold(domainName, auth.Name.Value) || strings.Contains(domainName, auth.Name.Value)) {
-				rrValues = append(rrValues, auth.GetData())
-			}
-		}
-	}
-
-	if msg.Header.ArCount > 0 {
-		for _, add := range msg.Additional {
-			if add.Type == recType && (strings.EqualFold(domainName, add.Name.Value) || strings.Contains(domainName, add.Name.Value)) {
-				rrValues = append(rrValues, add.GetData())
-			}
-		}
-	}
-
-	if len(rrValues) == 0 {
+	if len(rrValues) > 0 {
+		return rrValues, true
+	} else {
 		return nil, false
-	} 
-
-	return rrValues, true
+	}
 }
 
-//Resolves the given domain name and returns its corresponding IPv4 or IPv6 address.
-func (msg *Message) GetIPForCNAME(name string, recType RecordType) []string {
-	values, exists := msg.GetRRValuesFor(name, recType)
-	if exists {
-		return values
-	}
-
-	addresses := make([]string, 0)
-	values, exists = msg.GetRRValuesFor(name, TYPE_CNAME)
-	if exists {
-		for _, value := range values {
-			addresses = append(addresses, msg.GetIPForCNAME(value, recType)...)
+func (msg *Message) FindAuthorityRecords(recType RecordType) ([]Resource, bool) {
+	rrValues := make([]Resource, 0)
+	if msg.Header.NsCount > 0 {
+		for _, ns := range msg.Authoritative {
+			if ns.Type == recType {
+				rrValues = append(rrValues, ns)
+			}
 		}
 	}
 
-	return addresses
+	if len(rrValues) > 0 {
+		return rrValues, true
+	} else {
+		return nil, false
+	}
+}
+
+func (msg *Message) FindAdditionalRecords(recType RecordType) ([]Resource, bool) {
+	rrValues := make([]Resource, 0)
+	if msg.Header.ArCount > 0 {
+		for _, ans := range msg.Additional {
+			if ans.Type == recType {
+				rrValues = append(rrValues, ans)
+			}
+		}
+	}
+
+	if len(rrValues) > 0 {
+		return rrValues, true
+	} else {
+		return nil, false
+	}
 }
