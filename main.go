@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"flag"
-	"strings"
 	"os"
 	"github.com/maheshkumaarbalaji/ask-athena/lib/dns"
 	"github.com/maheshkumaarbalaji/ask-athena/lib/config"
@@ -32,8 +31,8 @@ func main() {
 
 	if resolver.IsAllowed(*t) {
 		for _, name := range names {
-			values := resolver.Resolve(name, resolver.GetRecordType(*t))
-			fmt.Printf("%s\t\t%s\n", name, strings.Join(values, ", "))
+			fmt.Printf("Querying DNS for %s type record for %s.\n\n", *t, name)
+			resolver.Resolve(name, resolver.GetRecordType(*t))
 		}
 	} else {
 		fmt.Printf("Given record type is not supported by the DNS resolver.\n")

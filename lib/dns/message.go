@@ -3,6 +3,22 @@ package dns
 //Represents the type of DNS Message - Request or Response.
 type MessageType uint8
 
+//Holds the domain name and their compression offsets used while packing them into a stream of octets.
+type CompressionMap map[string]int
+
+//Gets the offset assosciated with a domain name from the compression map.
+func (cmpMap CompressionMap) Get(name string) (int, bool) {
+	name = Canonicalize(name)
+	offset, ok := cmpMap[name]
+	return offset, ok
+}
+
+//Sets the offset for a domain name in the compression map. If domain name does not exist already, a new entry is added to the compression map.
+func (cmpMap CompressionMap) Set(name string, offset int) {
+	name = Canonicalize(name)
+	cmpMap[name] = offset
+}
+
 //Represents a DNS Message (both Request and Response).
 type Message struct {
 	//Represents all the data present in header section of the DNS Message
@@ -15,6 +31,8 @@ type Message struct {
 	Authoritative []Resource
 	//Array of additional RRs present in the DNS Message.
 	Additional []Resource
+	//Compression map instance for the Message.
+	compressionMap CompressionMap
 }
 
 //Initialises all the properties in the Message instance.
@@ -25,6 +43,7 @@ func (msg *Message) Initialize(mt MessageType) {
 	msg.Answers = make([]Resource, 0)
 	msg.Authoritative = make([]Resource, 0)
 	msg.Additional = make([]Resource, 0)
+	msg.compressionMap = make(CompressionMap)
 }
 
 //Creates a new question and adds it to the DNS Message instance.
@@ -36,15 +55,45 @@ func (msg *Message) NewQuestion(name string, recType RecordType) {
 	msg.Header.SetQuestionCount(questionCount)
 }
 
+//Creates a new answer resource record in the Message instance.
+func (msg *Message) NewAnswers(resources []Resource) {
+	msg.Answers = append(msg.Answers, resources...)
+	msg.Header.SetAnswerCount(uint16(len(resources)))
+}
+
 //Pack the message as a sequence of octets.
 func (msg *Message) Pack() []byte {
 	buffer := make([]byte, 0)
 	buffer = append(buffer, msg.Header.Pack()...)
+	offset := len(buffer)
 	if msg.Header.QdCount > 0 {
 		for _, que := range msg.Questions {
-			buffer = append(buffer, que.Pack()...)
+			buffer = append(buffer, que.Pack(msg.compressionMap, offset)...)
+			offset = len(buffer)
 		}
 	}
+
+	if msg.Header.AnCount > 0 {
+		for _, rr := range msg.Answers {
+			buffer = append(buffer, rr.Pack(msg.compressionMap, offset)...)
+			offset = len(buffer)
+		}
+	}
+
+	if msg.Header.NsCount > 0 {
+		for _, rr := range msg.Authoritative {
+			buffer = append(buffer, rr.Pack(msg.compressionMap, offset)...)
+			offset = len(buffer)
+		}
+	}
+
+	if msg.Header.ArCount > 0 {
+		for _, rr := range msg.Additional {
+			buffer = append(buffer, rr.Pack(msg.compressionMap, offset)...)
+			offset = len(buffer)
+		}
+	}
+
 	return buffer
 }
 
@@ -135,7 +184,7 @@ func (msg *Message) IsResponse(request *Message) bool {
 	return true
 }
 
-
+//Returns the RRs from Answer section of DNS message matching the given record type.
 func (msg *Message) FindAnswerRecords(recType RecordType) ([]Resource, bool) {
 	rrValues := make([]Resource, 0)
 	if msg.Header.AnCount > 0 {
@@ -153,6 +202,7 @@ func (msg *Message) FindAnswerRecords(recType RecordType) ([]Resource, bool) {
 	}
 }
 
+//Returns the RRs from Authoritative section of DNS message matching the given record type.
 func (msg *Message) FindAuthorityRecords(recType RecordType) ([]Resource, bool) {
 	rrValues := make([]Resource, 0)
 	if msg.Header.NsCount > 0 {
@@ -170,6 +220,7 @@ func (msg *Message) FindAuthorityRecords(recType RecordType) ([]Resource, bool) 
 	}
 }
 
+//Returns the RRs from Additional section of DNS message matching the given record type.
 func (msg *Message) FindAdditionalRecords(recType RecordType) ([]Resource, bool) {
 	rrValues := make([]Resource, 0)
 	if msg.Header.ArCount > 0 {

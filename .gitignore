@@ -19,7 +19,12 @@
 
 # Go workspace file
 go.work
+
 # Go Executable file created on build
-ask-athena
+*ask-athena*
+
 # Temporary log files generated
 *.log
+
+# Store files created in Mac
+.DS_Store

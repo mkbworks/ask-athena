@@ -19,14 +19,13 @@ func (que *Question) Set(name string, recType RecordType) {
 	que.Class = CLASS_IN
 	que.Type = recType
 	que.Name = DomainName{}
-	que.Name.Initialize()
-	que.Name.Pack(name)
+	que.Name.Initialize(name)
 }
 
 //Pack the Question instance as a sequence of octets.
-func (que *Question) Pack() []byte {
+func (que *Question) Pack(compressionMap CompressionMap, offset int) []byte {
 	buffer := make([]byte, 0)
-	buffer = append(buffer, que.Name.Data...)
+	buffer = append(buffer, que.Name.Pack(compressionMap, offset)...)
 	buffer = append(buffer, PackUInt16(uint16(que.Type))...)
 	buffer = append(buffer, PackUInt16(uint16(que.Class))...)
 	return buffer

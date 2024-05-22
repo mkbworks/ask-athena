@@ -20,7 +20,7 @@ func SetupConfig() error {
 	CacheFilePath = filepath.Join(CurrentDirectory, "assets", "resolver-cache.conf")
 	RootServerFilePath = filepath.Join(CurrentDirectory, "assets", "root-servers.conf")
 	CurrentTime := time.Now().UTC()
-	LogFileName := fmt.Sprintf("%d%02d%02d%02d%02d%02d.log", CurrentTime.Year(), CurrentTime.Month(), CurrentTime.Day(), CurrentTime.Hour(), CurrentTime.Minute(), CurrentTime.Second())
+	LogFileName := fmt.Sprintf("DNS_LOGS_%d%02d%02d_%02d%02d%02d.log", CurrentTime.Year(), CurrentTime.Month(), CurrentTime.Day(), CurrentTime.Hour(), CurrentTime.Minute(), CurrentTime.Second())
 	LogFilePath = filepath.Join(CurrentDirectory, LogFileName)
 	return nil
 }

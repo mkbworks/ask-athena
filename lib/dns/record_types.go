@@ -1,7 +1,5 @@
 package dns
 
-import "errors"
-
 //Identifies a protocol family or instance of a protocol.
 type ClassType uint16
 
@@ -42,8 +40,8 @@ func (rt RecordType) String() string {
 type RecordTypes map[string]RecordType
 
 //Fetches the key from RecordTypes instance, whose value matches 'recType'.
-func (recTypes *RecordTypes) GetKey(recType RecordType) string {
-	for key, value := range *recTypes {
+func (recTypes RecordTypes) GetKey(recType RecordType) string {
+	for key, value := range recTypes {
 		if value == recType {
 			return key
 		}
@@ -53,9 +51,9 @@ func (recTypes *RecordTypes) GetKey(recType RecordType) string {
 }
 
 //Gets all the keys present in RecordTypes instance.
-func (recTypes *RecordTypes) GetAllKeys() []string {
+func (recTypes RecordTypes) GetAllKeys() []string {
 	keys := make([]string, 0)
-	for key := range *recTypes {
+	for key := range recTypes {
 		keys = append(keys, key)
 	}
 	return keys
@@ -65,7 +63,7 @@ func (recTypes *RecordTypes) GetAllKeys() []string {
 func (recTypes RecordTypes) GetRecordType(key string) RecordType {
 	recType, ok := recTypes[key]
 	if !ok {
-		panic(errors.New("record type not available"))
+		panic(ErrInvalidRecordType)
 	}
 	return recType
 }
@@ -77,7 +75,7 @@ type ClassTypes map[string]ClassType
 func (clsTypes ClassTypes) GetClassType(key string) ClassType {
 	clsType, ok := clsTypes[key]
 	if !ok {
-		panic(errors.New("class type not available"))
+		panic(ErrInvalidClassType)
 	}
 	return clsType
 }

@@ -30,32 +30,31 @@ type Resource struct {
 //Initialize the instance of Resource.
 func (resource *Resource) Initialize(domainName string, recType string, classType string, ttl uint32, data string) {
 	resource.Name = DomainName{}
-	resource.Name.Initialize()
-	resource.Name.Pack(domainName)
+	resource.Name.Initialize(domainName)
 	resource.Type = AllowedRRTypes.GetRecordType(recType)
 	resource.Class = AllowedClassTypes.GetClassType(classType)
 	resource.TTL = ttl
 	if resource.Type == TYPE_A {
-		resource.RdLength = uint16(len(convertToBytes(data, "IPv4")))
+		resource.RdLength = uint16(len(convertToBytes(data, ADDRESS_IPv4)))
 		ar := AResource{}
 		ar.IPv4Address = strings.TrimSpace(data)
 		resource.Rdata = &ar
 	} else if resource.Type == TYPE_AAAA {
-		resource.RdLength = uint16(len(convertToBytes(data, "IPv6")))
+		resource.RdLength = uint16(len(convertToBytes(data, ADDRESS_IPv6)))
 		aaar := AAAAResource{}
 		aaar.IPv6Address = strings.TrimSpace(data)
 		resource.Rdata = &aaar
 	} else if resource.Type == TYPE_CNAME {
 		cname := CNAMEResource{}
 		cname.name = DomainName{}
-		cname.name.Pack(data)
-		resource.RdLength = uint16(len(cname.name.Data))
+		cname.name.Initialize(data)
+		resource.RdLength = uint16(cname.name.GetLength())
 		resource.Rdata = &cname
 	} else if resource.Type == TYPE_NS {
 		ns := NSResource{}
 		ns.NameServer = DomainName{}
-		ns.NameServer.Pack(data)
-		resource.RdLength = uint16(len(ns.NameServer.Data))
+		ns.NameServer.Initialize(data)
+		resource.RdLength = uint16(ns.NameServer.GetLength())
 		resource.Rdata = &ns
 	} else if resource.Type == TYPE_TXT {
 		txt := TXTResource{}
@@ -63,6 +62,37 @@ func (resource *Resource) Initialize(domainName string, recType string, classTyp
 		resource.RdLength = uint16(len(data))
 		resource.Rdata = &txt
 	}
+}
+
+//Packs the resource data into a stream of bytes
+func (resource *Resource) PackBody(compressionMap CompressionMap, offset int) []byte {
+	buffer := make([]byte, 0)
+	if resource.Type == TYPE_A {
+		resourceData := resource.GetData()
+		buffer = append(buffer, convertToBytes(resourceData,  ADDRESS_IPv4)...)
+	} else if resource.Type == TYPE_AAAA {
+		resourceData := resource.GetData()
+		buffer = append(buffer, convertToBytes(resourceData,  ADDRESS_IPv6)...)
+	} else if resource.Type == TYPE_CNAME || resource.Type == TYPE_NS {
+		buffer = append(buffer, resource.Name.Pack(compressionMap, offset)...)
+	} else if resource.Type == TYPE_TXT {
+		buffer = append(buffer, []byte(resource.GetData())...)
+	}
+
+	return buffer
+}
+
+//Packs the resource instance to a stream of bytes
+func (resource *Resource) Pack(compressionMap CompressionMap, offset int) []byte {
+	buffer := make([]byte, 0)
+	buffer = append(buffer, resource.Name.Pack(compressionMap, offset)...)
+	buffer = append(buffer, PackUInt16(uint16(resource.Type))...)
+	buffer = append(buffer, PackUInt16(uint16(resource.Class))...)
+	buffer = append(buffer, PackUInt32(uint32(resource.TTL))...)
+	buffer = append(buffer, PackUInt16(resource.RdLength)...)
+	offset = offset + len(buffer)
+	buffer = append(buffer, resource.PackBody(compressionMap, offset)...)
+	return buffer
 }
 
 //Unpacks a stream of bytes to a resource instance.

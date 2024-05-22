@@ -54,7 +54,7 @@ func (bf *BindFile) NewLocalResource(name string, ttl uint32, class string, recT
 	return &localResource
 }
 
-//Creates a new local resource record and adds it to the BIND file if its cacheable.
+//Creates a new local resource record and adds it to the BIND file if it has not already expired.
 func (bf *BindFile) Add(name string, ttl uint32, class string, recType string, data string) {
 	CurrentTime := time.Now().UTC()
 	if ttl != 0 && !bf.HasRecordExpired(ttl, CurrentTime) {
@@ -102,7 +102,7 @@ func (bf *BindFile) Load() error {
 	return nil
 }
 
-//Persists the in-memory RR changes to the local copy file.
+//Persists the in-memory RR changes to the disk.
 func (bf *BindFile) Sync() error {
 	fileHandler, err := os.Create(bf.LocalFilePath)
 	if err != nil {
@@ -122,13 +122,13 @@ func (bf *BindFile) Sync() error {
 }
 
 //Finds all records with given domain name and record type.
-func (bf *BindFile) FindAll(name string, recType RecordType) ([]string, bool) {
-	resolvedValues := make([]string, 0)
+func (bf *BindFile) FindAll(name string, recType RecordType) ([]Resource, bool) {
+	resolvedValues := make([]Resource, 0)
 	name = Canonicalize(name)
 	if len(bf.ResourceRecords) > 0 {
 		for _, lrr := range bf.ResourceRecords {
 			if lrr.resource.Type == recType && strings.EqualFold(name, lrr.resource.Name.Value) && !bf.HasRecordExpired(lrr.resource.TTL, lrr.LastModified) {
-				resolvedValues = append(resolvedValues, lrr.resource.GetData())
+				resolvedValues = append(resolvedValues, *lrr.resource)
 			}
 		}
 	}

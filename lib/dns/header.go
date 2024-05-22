@@ -2,7 +2,6 @@ package dns
 
 import (
 	"fmt"
-	"strconv"
 	"strings"
 )
 
@@ -88,25 +87,19 @@ type Header struct {
 	ArCount uint16
 }
 
-//Initialises an instance of Header with the default values based on MessageType.
-func (hdr *Header) Initialize(mt MessageType) {
-	if mt == MSG_REQUEST {
-		hdr.Identifier = Id()
-		hdr.IsResponse = false
-	} else {
-		hdr.Identifier = 0
-		hdr.IsResponse = true
-	}
-
-	hdr.Opcode = OPCODE_QUERY
-	hdr.Rcode = RC_NOERROR
-	hdr.Zero = 0
-	hdr.SetRecursionDesired(true)
+//Sets the Identifier value in header.
+func (hdr *Header) SetIdentifier(value uint16) {
+	hdr.Identifier = value
 }
 
 //Sets the Recursion Desired flag
 func (hdr *Header) SetRecursionDesired(value bool) {
 	hdr.RecursionDesired = value
+}
+
+//Sets the Recursion Available flag
+func (hdr *Header) SetRecursionAvailable(value bool) {
+	hdr.RecursionAvailable = value
 }
 
 //Sets the number of questions in the DNS Message.
@@ -129,57 +122,70 @@ func (hdr *Header) SetAdditionalRecordCount(count uint16) {
 	hdr.ArCount = count
 }
 
+//Sets the flag to indicate if header belongs to DNS request or response.
+func (hdr *Header) SetResponse(value bool) {
+	hdr.IsResponse = value
+}
+
+//Sets the response code for the DNS Response message.
+func (hdr *Header) SetResponseCode(value ResponseCode) {
+	hdr.Rcode = value
+}
+
+//Initialises an instance of Header with the default values based on MessageType.
+func (hdr *Header) Initialize(mt MessageType) {
+	if mt == MSG_REQUEST {
+		hdr.SetIdentifier(Id())
+		hdr.SetResponse(false)
+	} else if mt == MSG_RESPONSE{
+		hdr.SetIdentifier(0)
+		hdr.SetResponse(true)
+	} else {
+		hdr.SetIdentifier(0)
+		hdr.SetResponse(true)
+		hdr.SetRecursionAvailable(true)
+	}
+
+	hdr.Opcode = OPCODE_QUERY
+	hdr.SetResponseCode(RC_NOERROR)
+	hdr.Zero = 0
+	hdr.SetRecursionDesired(true)
+}
+
 //Pack the flag values in Message Header as a binary string.
 func (hdr *Header) PackFlag() []byte {
-	flag_binary := ""
+	flag := uint16(0)
 	if hdr.IsResponse {
-		flag_binary += "1"
-	} else {
-		flag_binary += "0"
+		flag = flag | QR_BIT
 	}
-	
-	flag_binary += GetBinary(uint16(hdr.Opcode), 4)
 
+	flag = flag | uint16(hdr.Opcode) << 11
 	if hdr.Authoritative {
-		flag_binary += "1"
-	} else {
-		flag_binary += "0"
+		flag = flag | AA_BIT
 	}
 
 	if hdr.Truncation {
-		flag_binary += "1"
-	} else {
-		flag_binary += "0"
+		flag = flag | TR_BIT
 	}
 
 	if hdr.RecursionDesired {
-		flag_binary += "1"
-	} else {
-		flag_binary += "0"
+		flag = flag | RD_BIT
 	}
 
 	if hdr.RecursionAvailable {
-		flag_binary += "1"
-	} else {
-		flag_binary += "0"
+		flag = flag | RA_BIT
 	}
 
-	flag_binary += "0" //Default value for zero flag
-
 	if hdr.Authenticated {
-		flag_binary += "1"
-	} else {
-		flag_binary += "0"
+		flag = flag | AUTH_BIT
 	}
 
 	if hdr.CheckingDisabled {
-		flag_binary += "1"
-	} else {
-		flag_binary += "0"
+		flag = flag | CHK_BIT	
 	}
 
-	flag_binary += GetBinary(uint16(hdr.Rcode), 4)
-	return PackBinary16(flag_binary)
+	flag = flag | uint16(hdr.Rcode)
+	return PackUInt16(flag)
 }
 
 //Pack the header instance as a sequence of octets.
@@ -196,71 +202,54 @@ func (hdr *Header) Pack() []byte {
 
 //Unpacks a flag byte stream into the Header instance.
 func (hdr *Header) UnpackFlag(buffer []byte) {
-	binary_string := UnpackBinary(buffer)
-	QrBit := binary_string[:1]
-	if QrBit == "1" {
+	flag := UnpackUInt16(buffer)
+	if flag & QR_BIT == QR_BIT {
 		hdr.IsResponse = true
 	} else {
 		hdr.IsResponse = false
 	}
 
-	OpcodeBits := binary_string[1:5]
-	OpcodeValue, err := strconv.ParseUint(OpcodeBits, 2, 16)
-	if err != nil {
-		panic(err)
-	}
+	hdr.Opcode = Flag((flag & OPCODE_BITS) >> 11)
 
-	hdr.Opcode = Flag(OpcodeValue)
-	AABit := binary_string[5:6]
-	if AABit == "1" {
+	if flag & AA_BIT == AA_BIT {
 		hdr.Authoritative = true
 	} else {
 		hdr.Authoritative = false
 	}
 
-	TCBit := binary_string[6:7]
-	if TCBit == "1" {
+	if flag & TR_BIT == TR_BIT {
 		hdr.Truncation = true
 	} else {
 		hdr.Truncation = false
 	}
 
-	RDBit := binary_string[7:8]
-	if RDBit == "1" {
+	if flag & RD_BIT == RD_BIT {
 		hdr.RecursionDesired = true
 	} else {
 		hdr.RecursionDesired = false
 	}
 
-	RABit := binary_string[8:9]
-	if RABit == "1" {
+	if flag & RA_BIT == RA_BIT {
 		hdr.RecursionAvailable = true
 	} else {
 		hdr.RecursionAvailable = false
 	}
 
 	hdr.Zero = Flag(0)
-	AuthBit := binary_string[10:11]
-	if AuthBit == "1" {
+
+	if flag & AUTH_BIT == AUTH_BIT {
 		hdr.Authenticated = true
 	} else {
 		hdr.Authenticated = false
 	}
 
-	ChkBit := binary_string[11:12]
-	if ChkBit == "1" {
+	if flag & CHK_BIT == CHK_BIT {
 		hdr.CheckingDisabled = true
 	} else {
 		hdr.CheckingDisabled = false
 	}
-	
-	RCodeBits := binary_string[12:16]
-	RCodeValue, err := strconv.ParseUint(RCodeBits, 2, 16)
-	if err != nil {
-		panic(err)
-	}
 
-	hdr.Rcode = ResponseCode(RCodeValue)
+	hdr.Rcode = ResponseCode(flag & RCODE_BITS)
 }
 
 //Unpacks a stream of bytes to a header instance of DNS Message.
