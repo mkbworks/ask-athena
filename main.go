@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"flag"
 	"os"
+	"path/filepath"
 	"github.com/maheshkumaarbalaji/ask-athena/lib/dns"
 	"github.com/maheshkumaarbalaji/ask-athena/lib/config"
 )
@@ -17,13 +18,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	err := config.SetupConfig()
+	CurrentDirectory, err := os.Getwd()
+	if err != nil {
+		fmt.Println("Error occurred while getting the current working directory:", err.Error())
+		os.Exit(1)
+	}
+
+	LogFileDirectory := filepath.Join(CurrentDirectory, "Logs")
+	err = config.SetupConfig(LogFileDirectory)
 	if err != nil {
 		fmt.Println("Error occurred while setting up DNS resolver configuration:", err.Error())
 		os.Exit(1)
 	}
 
-	resolver, err := dns.GetResolver(config.RootServerFilePath, config.CacheFilePath, config.LogFilePath)
+	resolver, err := dns.NewResolver(config.RootServerFilePath, config.CacheFilePath, config.LogFilePath)
 	if err != nil {
 		fmt.Printf("Error occurred while fetching DNS Resolver Instance: %s\n", err.Error())
 		os.Exit(1)
@@ -31,7 +39,7 @@ func main() {
 
 	if resolver.IsAllowed(*t) {
 		for _, name := range names {
-			fmt.Printf("Querying DNS for %s type record for %s.\n\n", *t, name)
+			fmt.Printf("Querying DNS for %s type record of %s.\n\n", *t, name)
 			resolver.Resolve(name, resolver.GetRecordType(*t))
 		}
 	} else {

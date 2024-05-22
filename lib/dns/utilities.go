@@ -12,7 +12,7 @@ import (
 )
 
 //Returns a new instance of Resolver. In case of any errors, it returns nil instead.
-func GetResolver(RootServersPath string, CacheFilePath string, LogFilePath string) (*Resolver, error) {
+func NewResolver(RootServersPath string, CacheFilePath string, LogFilePath string) (*Resolver, error) {
 	isRootServerAbs := filepath.IsAbs(RootServersPath)
 	isCacheFilePathAbs := filepath.IsAbs(CacheFilePath)
 	if !isRootServerAbs {
