@@ -123,6 +123,42 @@ func (bf *BindFile) Sync() error {
 
 //Finds all records with given domain name and record type.
 func (bf *BindFile) FindAll(name string, recType RecordType) ([]Resource, bool) {
+	resources := make([]Resource, 0)
+	if recType == TYPE_A || recType == TYPE_AAAA {
+		CNAME_RRs, ok := bf.FindResources(name, TYPE_CNAME)
+		if ok {
+			RRs ,ok := bf.FindResources(CNAME_RRs[0].GetData(), recType)
+			if ok {
+				resources = append(resources, CNAME_RRs...)
+				resources = append(resources, RRs...)
+			}
+		} else {
+			RRs, ok := bf.FindResources(name, recType)
+			if ok {
+				resources = append(resources, RRs...)
+			}
+		}
+	} else if recType == TYPE_CNAME {
+		RRs, ok := bf.FindResources(name, TYPE_CNAME)
+		if ok {
+			resources = append(resources, RRs...)
+		}
+	} else if recType == TYPE_TXT {
+		RRs, ok := bf.FindResources(name, TYPE_TXT)
+		if ok {
+			resources = append(resources, RRs...)
+		}
+	}
+
+	if len(resources) > 0 {
+		return resources, true
+	} else {
+		return nil, false
+	}
+}
+
+//Returns all cached records matching the given domain name and record type.
+func (bf *BindFile) FindResources(name string, recType RecordType) ([]Resource, bool) {
 	resolvedValues := make([]Resource, 0)
 	name = Canonicalize(name)
 	if len(bf.ResourceRecords) > 0 {

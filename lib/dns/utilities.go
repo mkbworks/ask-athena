@@ -40,6 +40,7 @@ func NewResolver(RootServersPath string, CacheFilePath string, LogFilePath strin
 	resolver.Logger = log.New(logFileHandler, "", log.Ldate | log.Ltime)
 	resolver.Logger.Println("Local records have been moved from file to memory.")
 	resolver.Logger.Println("Root DNS Server records have been moved from BIND file to memory.")
+	resolver.resolveResponse = nil
 	return &resolver, nil
 }
 

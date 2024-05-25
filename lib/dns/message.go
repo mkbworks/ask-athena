@@ -58,7 +58,9 @@ func (msg *Message) NewQuestion(name string, recType RecordType) {
 //Creates a new answer resource record in the Message instance.
 func (msg *Message) NewAnswers(resources []Resource) {
 	msg.Answers = append(msg.Answers, resources...)
-	msg.Header.SetAnswerCount(uint16(len(resources)))
+	CurrentCount := msg.Header.AnCount
+	CurrentCount += uint16(len(resources))
+	msg.Header.SetAnswerCount(CurrentCount)
 }
 
 //Pack the message as a sequence of octets.
