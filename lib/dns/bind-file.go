@@ -121,33 +121,90 @@ func (bf *BindFile) Sync() error {
 	return nil
 }
 
-//Finds all records with given domain name and record type.
-func (bf *BindFile) FindAll(name string, recType RecordType) ([]Resource, bool) {
-	resources := make([]Resource, 0)
-	if recType == TYPE_A || recType == TYPE_AAAA {
-		CNAME_RRs, ok := bf.FindResources(name, TYPE_CNAME)
-		if ok {
-			RRs ,ok := bf.FindResources(CNAME_RRs[0].GetData(), recType)
-			if ok {
-				resources = append(resources, CNAME_RRs...)
-				resources = append(resources, RRs...)
-			}
-		} else {
-			RRs, ok := bf.FindResources(name, recType)
-			if ok {
-				resources = append(resources, RRs...)
-			}
-		}
+// Resolves the given domain name and record type using data available in the BIND file.
+func (bf *BindFile) Resolve(name string, recType RecordType) ([]Resource, bool) {
+	if recType == TYPE_A{
+		return bf.resolveA(name)
+	} else if recType == TYPE_AAAA {
+		return bf.resolveAAAA(name)
 	} else if recType == TYPE_CNAME {
-		RRs, ok := bf.FindResources(name, TYPE_CNAME)
-		if ok {
-			resources = append(resources, RRs...)
-		}
+		return bf.resolveCNAME(name)
 	} else if recType == TYPE_TXT {
-		RRs, ok := bf.FindResources(name, TYPE_TXT)
+		return bf.resolveTXT(name)
+	} else {
+		return nil, false
+	}
+}
+
+// Determines the A record for the given domain name from the BIND file.
+func (bf *BindFile) resolveA(name string) ([]Resource, bool) {
+	resources := make([]Resource, 0)
+	CNAME_RRs, ok := bf.FindResources(name, TYPE_CNAME)
+	if ok {
+		A_RRs, ok := bf.resolveA(CNAME_RRs[0].GetData())
 		if ok {
-			resources = append(resources, RRs...)
+			resources = append(resources, CNAME_RRs...)
+			resources = append(resources, A_RRs...)
 		}
+	}
+
+	A_RRs, ok := bf.FindResources(name, TYPE_A)
+	if ok {
+		resources = append(resources, A_RRs...)
+	}
+
+	if len(resources) > 0 {
+		return resources, true
+	} else {
+		return nil, false
+	}
+}
+
+// Determines the AAAA record for the given domain name from the BIND file.
+func (bf *BindFile) resolveAAAA(name string) ([]Resource, bool) {
+	resources := make([]Resource, 0)
+	CNAME_RRs, ok := bf.FindResources(name, TYPE_CNAME)
+	if ok {
+		AAAA_RRs, ok := bf.resolveAAAA(CNAME_RRs[0].GetData())
+		if ok {
+			resources = append(resources, CNAME_RRs...)
+			resources = append(resources, AAAA_RRs...)
+		}
+	}
+
+	AAAA_RRs, ok := bf.FindResources(name, TYPE_AAAA)
+	if ok {
+		resources = append(resources, AAAA_RRs...)
+	}
+
+	if len(resources) > 0 {
+		return resources, true
+	} else {
+		return nil, false
+	}
+}
+
+// Determines the CNAME record for the given domain name from the BIND file.
+func (bf *BindFile) resolveCNAME(name string) ([]Resource, bool) {
+	resources := make([]Resource, 0)
+	CNAME_RRs, ok := bf.FindResources(name, TYPE_CNAME)
+	if ok {
+		resources = append(resources, CNAME_RRs...)
+	}
+
+	if len(resources) > 0 {
+		return resources, true
+	} else {
+		return nil, false
+	}
+}
+
+// Determines the TXT record for the given domain name from the BIND file.
+func (bf *BindFile) resolveTXT(name string) ([]Resource, bool) {
+	resources := make([]Resource, 0)
+	TXT_RRs, ok := bf.FindResources(name, TYPE_TXT)
+	if ok {
+		resources = append(resources, TXT_RRs...)
 	}
 
 	if len(resources) > 0 {

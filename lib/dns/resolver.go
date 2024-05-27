@@ -15,103 +15,112 @@ type Resolver struct {
 	Cache BindFile
 	//Logger to be used to generate logs.
 	Logger *log.Logger
-	//References the current DNS response being formed.
-	resolveResponse *Message
+	//References the DNS response being formed during domain name resolution.
+	response *Message
 }
 
 // Queries the DNS server and fetches the 't' type record for 'name'.
 func (resolver *Resolver) Resolve(name string, t RecordType) {
-	resolver.resolveResponse = NewMessage(MSG_RESOLVER_RESPONSE)
-	resolver.resolveResponse.NewQuestion(name, t)
+	resolver.response = NewMessage(MSG_RESOLVER_RESPONSE)
+	resolver.response.NewQuestion(name, t)
 	if t == TYPE_A {
-		cacheRecords, ok := resolver.Cache.FindAll(name, TYPE_A)
+		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_A)
 		if ok {
 			resolver.Logger.Printf("IPv4 address for the domain name %s has been served from local Cache file.\n", name)
-			resolver.resolveResponse.NewAnswers(cacheRecords)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.AddAnswers(cacheRecords)
+			fmt.Println(resolver.response.String())
 			return
 		}
 		_, err := resolver.resolveA(name)
 		if err != nil {
 			resolver.Logger.Println(err.Error())
-			resolver.resolveResponse.Header.SetResponseCode(RC_SERVFAIL)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
+			fmt.Println(resolver.response.String())
 			return
 		}
 
-		for _, A_RR := range resolver.resolveResponse.Answers {
+		for _, A_RR := range resolver.response.Answers {
 			resolver.Cache.Add(A_RR.Name.Value, A_RR.TTL, A_RR.Class.String(), A_RR.Type.String(), A_RR.GetData())
 		}
 
-		fmt.Println(resolver.resolveResponse.String())
+		fmt.Println(resolver.response.String())
 	} else if t == TYPE_AAAA {
-		cacheRecords, ok := resolver.Cache.FindAll(name, TYPE_AAAA)
+		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_AAAA)
 		if ok {
 			resolver.Logger.Printf("IPv6 address for the domain name %s has been served from local Cache file.\n", name)
-			resolver.resolveResponse.NewAnswers(cacheRecords)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.AddAnswers(cacheRecords)
+			fmt.Println(resolver.response.String())
 			return
 		}
 		_, err := resolver.resolveAAAA(name)
 		if err != nil {
 			resolver.Logger.Println(err.Error())
-			resolver.resolveResponse.Header.SetResponseCode(RC_SERVFAIL)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
+			fmt.Println(resolver.response.String())
 			return
 		}
 
-		for _, AAAA_RR := range resolver.resolveResponse.Answers {
+		for _, AAAA_RR := range resolver.response.Answers {
 			resolver.Cache.Add(AAAA_RR.Name.Value, AAAA_RR.TTL, AAAA_RR.Class.String(), AAAA_RR.Type.String(), AAAA_RR.GetData())
 		}
 
-		fmt.Println(resolver.resolveResponse.String())
+		fmt.Println(resolver.response.String())
 	} else if t == TYPE_TXT {
-		cacheRecords, ok := resolver.Cache.FindAll(name, TYPE_TXT)
+		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_TXT)
 		if ok {
 			resolver.Logger.Printf("TXT record for the domain name %s has been served from local Cache file.\n", name)
-			resolver.resolveResponse.NewAnswers(cacheRecords)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.AddAnswers(cacheRecords)
+			fmt.Println(resolver.response.String())
 			return
 		}
 		_, err := resolver.resolveTXT(name)
 		if err != nil {
 			resolver.Logger.Println(err.Error())
-			resolver.resolveResponse.Header.SetResponseCode(RC_SERVFAIL)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
+			fmt.Println(resolver.response.String())
 			return
 		}
 
-		for _, TXT_RR := range resolver.resolveResponse.Answers {
+		for _, TXT_RR := range resolver.response.Answers {
 			resolver.Cache.Add(TXT_RR.Name.Value, TXT_RR.TTL, TXT_RR.Class.String(), TXT_RR.Type.String(), TXT_RR.GetData())
 		}
 
-		fmt.Println(resolver.resolveResponse.String())
+		fmt.Println(resolver.response.String())
 	} else if t == TYPE_CNAME {
-		cacheRecords, ok := resolver.Cache.FindAll(name, TYPE_CNAME)
+		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_CNAME)
 		if ok {
 			resolver.Logger.Printf("CNAME record for the domain name %s has been served from the local cache file.\n", name)
-			resolver.resolveResponse.NewAnswers(cacheRecords)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.AddAnswers(cacheRecords)
+			fmt.Println(resolver.response.String())
 			return
 		}
 
 		_, err := resolver.resolveCNAME(name)
 		if err != nil {
 			resolver.Logger.Println(err.Error())
-			resolver.resolveResponse.Header.SetResponseCode(RC_SERVFAIL)
-			fmt.Println(resolver.resolveResponse.String())
+			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
+			fmt.Println(resolver.response.String())
 			return
 		}
 
-		for _, CNAME_RR := range resolver.resolveResponse.Answers {
+		for _, CNAME_RR := range resolver.response.Answers {
 			resolver.Cache.Add(CNAME_RR.Name.Value, CNAME_RR.TTL, CNAME_RR.Class.String(), CNAME_RR.Type.String(), CNAME_RR.GetData())
 		}
 
-		fmt.Println(resolver.resolveResponse.String())
+		fmt.Println(resolver.response.String())
 	} else {
 		resolver.Logger.Println(ErrInvalidRecordType.Error())
-		resolver.resolveResponse.Header.SetResponseCode(RC_NOTIMP)
-		fmt.Println(resolver.resolveResponse.String())
+		resolver.response.Header.SetResponseCode(RC_NOTIMP)
+		fmt.Println(resolver.response.String())
+	}
+}
+
+// Adds the given resource records to resolver response message if the domain name given is present in the Question.
+func (resolver *Resolver) addToResolverResponse(name string, resources []Resource) {
+	if resolver.response.HasQuestion(name) {
+		resolver.response.AddAnswers(resources)
+	} else if resolver.response.HasAnswer(name) {
+		resolver.response.AddAnswers(resources)
 	}
 }
 
@@ -125,12 +134,12 @@ func (resolver *Resolver) resolveA(name string) ([]Resource, error) {
 		if response.Header.AnCount > 0 {
 			CNAME_RRs, exists := response.FindAnswerRecords(TYPE_CNAME)
 			if exists {
-				resolver.resolveResponse.NewAnswers(CNAME_RRs)
+				resolver.addToResolverResponse(name, CNAME_RRs)
 				return resolver.resolveA(CNAME_RRs[0].GetData())
 			}
 
 			A_RRs, _ := response.FindAnswerRecords(TYPE_A)
-			resolver.resolveResponse.NewAnswers(A_RRs)
+			resolver.addToResolverResponse(name, A_RRs)
 			return  A_RRs, nil
 		}
 
@@ -166,12 +175,12 @@ func (resolver *Resolver) resolveAAAA(name string) ([]Resource, error) {
 		if response.Header.AnCount > 0 {
 			CNAME_RRs, exists := response.FindAnswerRecords(TYPE_CNAME)
 			if exists {
-				resolver.resolveResponse.NewAnswers(CNAME_RRs)
+				resolver.addToResolverResponse(name, CNAME_RRs)
 				return resolver.resolveAAAA(CNAME_RRs[0].GetData())
 			}
 
 			AAAA_RRs, _ := response.FindAnswerRecords(TYPE_AAAA)
-			resolver.resolveResponse.NewAnswers(AAAA_RRs)
+			resolver.addToResolverResponse(name, AAAA_RRs)
 			return AAAA_RRs, nil
 		}
 
@@ -206,7 +215,7 @@ func (resolver *Resolver) resolveTXT(name string) ([]Resource, error) {
 		response := resolver.getResponse(request, nameserver)
 		if response.Header.AnCount > 0 {
 			TXT_RRs, _ := response.FindAnswerRecords(TYPE_TXT)
-			resolver.resolveResponse.NewAnswers(TXT_RRs)
+			resolver.addToResolverResponse(name, TXT_RRs)
 			return TXT_RRs, nil
 		}
 
@@ -241,7 +250,7 @@ func (resolver *Resolver) resolveCNAME(name string) ([]Resource, error) {
 		if response.Header.AnCount > 0 {
 			CNAME_RRs, Exists := response.FindAnswerRecords(TYPE_CNAME)
 			if Exists {
-				resolver.resolveResponse.NewAnswers(CNAME_RRs)
+				resolver.addToResolverResponse(name, CNAME_RRs)
 				return CNAME_RRs, nil
 			} else {
 				return make([]Resource, 0), nil

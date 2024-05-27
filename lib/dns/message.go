@@ -1,5 +1,9 @@
 package dns
 
+import (
+	"strings"
+)
+
 //Represents the type of DNS Message - Request or Response.
 type MessageType uint8
 
@@ -55,8 +59,42 @@ func (msg *Message) NewQuestion(name string, recType RecordType) {
 	msg.Header.SetQuestionCount(questionCount)
 }
 
-//Creates a new answer resource record in the Message instance.
-func (msg *Message) NewAnswers(resources []Resource) {
+// Checks if the message contains a question record for the given domain name.
+func (msg *Message) HasQuestion(name string) bool {
+	name = Canonicalize(name)
+	ok := false
+
+	if msg.Header.QdCount > 0 {
+		for _, que := range msg.Questions {
+			if strings.EqualFold(name, que.Name.Value) {
+				ok = true
+				break
+			}
+		} 
+	}
+
+	return ok
+}
+
+// Checks if the message contains an answer record for the given domain name.
+func (msg *Message) HasAnswer(name string) bool {
+	name = Canonicalize(name)
+	ok := false
+
+	if msg.Header.AnCount > 0 {
+		for _, ans := range msg.Answers {
+			if strings.EqualFold(name, ans.GetData()) {
+				ok = true
+				break
+			}
+		}
+	}
+
+	return ok
+}
+
+//Appends the resource records to the answers collection of the Message instance.
+func (msg *Message) AddAnswers(resources []Resource) {
 	msg.Answers = append(msg.Answers, resources...)
 	CurrentCount := msg.Header.AnCount
 	CurrentCount += uint16(len(resources))
