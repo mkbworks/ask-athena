@@ -133,15 +133,15 @@ func (hdr *Header) SetResponseCode(value ResponseCode) {
 }
 
 //Initialises an instance of Header with the default values based on MessageType.
-func (hdr *Header) Initialize(mt MessageType) {
+func (hdr *Header) Initialize(mt MessageType, MsgId uint16) {
 	if mt == MSG_REQUEST {
-		hdr.SetIdentifier(Id())
+		hdr.SetIdentifier(MsgId)
 		hdr.SetResponse(false)
 	} else if mt == MSG_RESPONSE{
-		hdr.SetIdentifier(0)
+		hdr.SetIdentifier(MsgId)
 		hdr.SetResponse(true)
 	} else {
-		hdr.SetIdentifier(0)
+		hdr.SetIdentifier(MsgId)
 		hdr.SetResponse(true)
 		hdr.SetRecursionAvailable(true)
 	}

@@ -16,34 +16,37 @@ The resolver also supports caching thereby facilitating quick resolution of doma
 The **main.go** file in the root directory contains a sample code that can be used to invoke the DNS resolution process for a set of domain names given as command line arguments.
 
 ```text
-t := flag.String("type", "A", "the record type to query for each domain name")
+recType := flag.String("type", "A", "the record type to query for each domain name")
+traceLogs := flag.Bool("trace", false, "Enable/Disable Trace Logs")
 flag.Parse()
 names := flag.Args()
 ```
 
-The above code snippet in main(), parses the command line arguments entered by the user. There are two types of arguments expected - a flag value to denote the type of DNS record being queried, and a series of domain names for which the record type must be queried.
+The above code snippet in main(), parses the command line arguments entered by the user. There are two types of arguments expected - a flag value to denote the type of DNS record being queried and whether or not trace logs are to be printed on screen, and a series of domain names for which the record type must be queried.
 
 ```text
-config.SetupConfig(LogFileDirectory)
+config.SetupConfig()
 ```
 
-The call to the SetupConfig() sets up the necessary configuration parameters required for creating an instance of the DNS resolver like Root DNS Servers file path, resolver cache file path and log file path. These are then used to create a new instance of the resolver in the below snippet.
+The call to the SetupConfig() sets up the necessary configuration parameters required for creating an instance of the DNS resolver like Root DNS Servers file path and resolver cache file path.
 
 ```text
-resolver, err := dns.NewResolver(config.RootServerFilePath, config.CacheFilePath, config.LogFilePath)
+resolver, err := dns.NewResolver(config.RootServerFilePath, config.CacheFilePath, *traceLogs)
 ```
 
-Once the resolver is inititalized, the domain name resolution can be carried out by invoking the resolver.Resolve() function with each of the domain name and its record type. The GetRecordType() method gets the DNS record type object associated with the record type string fetched from the command line.
+These are then used to create a new instance of the resolver by invoking the dns.NewResolver() method.
 
 ```text
 resolver.Resolve(name, resolver.GetRecordType(*t))
 ```
 
-Finally call the Close() method once all the domain names have been resolved. This persists the changes made to resolver cache in the local filesystem.
+Once the resolver is inititalized, the domain name resolution can be carried out by invoking the resolver.Resolve() function with each of the domain name and its record type. The GetRecordType() method gets the DNS record type object associated with the record type string fetched from the command line.
 
 ```text
 resolver.Close()
 ```
+
+Finally call the Close() method once all the domain names have been resolved. This persists the changes made to resolver cache in the local filesystem.
 
 ## Commands and Outputs
 
@@ -119,5 +122,140 @@ www.facebook.com. 	 IN 	 A
 ANSWER SECTION:
 www.facebook.com. 	 3600 	 IN 	 CNAME 	 star-mini.c10r.facebook.com.
 star-mini.c10r.facebook.com. 	 60 	 IN 	 A 	 157.240.22.35
+
+```
+
+### Example 4
+
+**Command entered** 
+
+```text
+./ask-athena -type=A -trace=true google.com
+```
+
+**Output printed on screen**
+
+```text
+Querying DNS for A type record of google.com.
+
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 DNS Request being sent to server - 199.7.91.13.
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 Request Contents are:
+->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 48339
+Flags: RD, QUESTION: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+
+QUESTION SECTION:
+google.com. 	 IN 	 A
+
+
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 Response received back:
+->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 48339
+Flags: QR RD, QUESTION: 1, ANSWER: 0, AUTHORITY: 13, ADDITIONAL: 14
+
+QUESTION SECTION:
+google.com. 	 IN 	 A
+
+AUTHORITY SECTION:
+com. 	 172800 	 IN 	 NS 	 a.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 b.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 c.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 d.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 e.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 f.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 g.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 h.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 i.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 j.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 k.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 l.gtld-servers.net.
+com. 	 172800 	 IN 	 NS 	 m.gtld-servers.net.
+
+ADDITIONAL SECTION:
+a.gtld-servers.net. 	 172800 	 IN 	 A 	 192.5.6.30
+b.gtld-servers.net. 	 172800 	 IN 	 A 	 192.33.14.30
+c.gtld-servers.net. 	 172800 	 IN 	 A 	 192.26.92.30
+d.gtld-servers.net. 	 172800 	 IN 	 A 	 192.31.80.30
+e.gtld-servers.net. 	 172800 	 IN 	 A 	 192.12.94.30
+f.gtld-servers.net. 	 172800 	 IN 	 A 	 192.35.51.30
+g.gtld-servers.net. 	 172800 	 IN 	 A 	 192.42.93.30
+h.gtld-servers.net. 	 172800 	 IN 	 A 	 192.54.112.30
+i.gtld-servers.net. 	 172800 	 IN 	 A 	 192.43.172.30
+j.gtld-servers.net. 	 172800 	 IN 	 A 	 192.48.79.30
+k.gtld-servers.net. 	 172800 	 IN 	 A 	 192.52.178.30
+l.gtld-servers.net. 	 172800 	 IN 	 A 	 192.41.162.30
+m.gtld-servers.net. 	 172800 	 IN 	 A 	 192.55.83.30
+a.gtld-servers.net. 	 172800 	 IN 	 AAAA 	 2001:503:a83e::2:30
+
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 DNS Request being sent to server - 192.5.6.30.
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 Request Contents are:
+->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 48339
+Flags: RD, QUESTION: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+
+QUESTION SECTION:
+google.com. 	 IN 	 A
+
+
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 Response received back:
+->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 48339
+Flags: QR RD, QUESTION: 1, ANSWER: 0, AUTHORITY: 4, ADDITIONAL: 8
+
+QUESTION SECTION:
+google.com. 	 IN 	 A
+
+AUTHORITY SECTION:
+google.com. 	 172800 	 IN 	 NS 	 ns2.google.com.
+google.com. 	 172800 	 IN 	 NS 	 ns1.google.com.
+google.com. 	 172800 	 IN 	 NS 	 ns3.google.com.
+google.com. 	 172800 	 IN 	 NS 	 ns4.google.com.
+
+ADDITIONAL SECTION:
+ns2.google.com. 	 172800 	 IN 	 AAAA 	 2001:4860:4802:34::a
+ns2.google.com. 	 172800 	 IN 	 A 	 216.239.34.10
+ns1.google.com. 	 172800 	 IN 	 AAAA 	 2001:4860:4802:32::a
+ns1.google.com. 	 172800 	 IN 	 A 	 216.239.32.10
+ns3.google.com. 	 172800 	 IN 	 AAAA 	 2001:4860:4802:36::a
+ns3.google.com. 	 172800 	 IN 	 A 	 216.239.36.10
+ns4.google.com. 	 172800 	 IN 	 AAAA 	 2001:4860:4802:38::a
+ns4.google.com. 	 172800 	 IN 	 A 	 216.239.38.10
+
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 DNS Request being sent to server - 216.239.34.10.
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 Request Contents are:
+->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 48339
+Flags: RD, QUESTION: 1, ANSWER: 0, AUTHORITY: 0, ADDITIONAL: 0
+
+QUESTION SECTION:
+google.com. 	 IN 	 A
+
+
+2024/06/08 19:08:39 **********************************************
+2024/06/08 19:08:39 Response received back:
+->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 48339
+Flags: QR AA RD, QUESTION: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+QUESTION SECTION:
+google.com. 	 IN 	 A
+
+ANSWER SECTION:
+google.com. 	 300 	 IN 	 A 	 142.251.32.46
+
+
+2024/06/08 19:08:39 **********************************************
+->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 48339
+Flags: QR RD RA, QUESTION: 1, ANSWER: 1, AUTHORITY: 0, ADDITIONAL: 0
+
+QUESTION SECTION:
+google.com. 	 IN 	 A
+
+ANSWER SECTION:
+google.com. 	 300 	 IN 	 A 	 142.251.32.46
 
 ```

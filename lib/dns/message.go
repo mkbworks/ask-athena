@@ -40,9 +40,9 @@ type Message struct {
 }
 
 //Initialises all the properties in the Message instance.
-func (msg *Message) Initialize(mt MessageType) {
+func (msg *Message) Initialize(mt MessageType, MsgId uint16) {
 	msg.Header = Header{}
-	msg.Header.Initialize(mt)
+	msg.Header.Initialize(mt, MsgId)
 	msg. Questions = make([]Question, 0)
 	msg.Answers = make([]Resource, 0)
 	msg.Authoritative = make([]Resource, 0)

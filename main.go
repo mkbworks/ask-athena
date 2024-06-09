@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"flag"
 	"os"
-	"path/filepath"
 	"github.com/maheshkumaarbalaji/ask-athena/lib/dns"
 	"github.com/maheshkumaarbalaji/ask-athena/lib/config"
 )
 
 func main() {
-	t := flag.String("type", "A", "the record type to query for each domain name")
+	recType := flag.String("type", "A", "the record type to query for each domain name")
+	traceLogs := flag.Bool("trace", false, "Enable/Disable Trace Logs")
 	flag.Parse()
 	names := flag.Args()
 	if len(names) == 0 {
@@ -18,29 +18,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	CurrentDirectory, err := os.Getwd()
-	if err != nil {
-		fmt.Println("Error occurred while getting the current working directory:", err.Error())
-		os.Exit(1)
-	}
-
-	LogFileDirectory := filepath.Join(CurrentDirectory, "Logs")
-	err = config.SetupConfig(LogFileDirectory)
+	err := config.SetupConfig()
 	if err != nil {
 		fmt.Println("Error occurred while setting up DNS resolver configuration:", err.Error())
 		os.Exit(1)
 	}
 
-	resolver, err := dns.NewResolver(config.RootServerFilePath, config.CacheFilePath, config.LogFilePath)
+	resolver, err := dns.NewResolver(config.RootServerFilePath, config.CacheFilePath, *traceLogs)
 	if err != nil {
 		fmt.Printf("Error occurred while fetching DNS Resolver Instance: %s\n", err.Error())
 		os.Exit(1)
 	}
 
-	if resolver.IsAllowed(*t) {
+	if resolver.IsAllowed(*recType) {
 		for _, name := range names {
-			fmt.Printf("Querying DNS for %s type record of %s.\n\n", *t, name)
-			resolver.Resolve(name, resolver.GetRecordType(*t))
+			fmt.Printf("Querying DNS for %s type record of %s.\n\n", *recType, name)
+			resolver.Resolve(name, resolver.GetRecordType(*recType))
 		}
 	} else {
 		fmt.Printf("Given record type is not supported by the DNS resolver.\n")

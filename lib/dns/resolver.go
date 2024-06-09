@@ -17,99 +17,57 @@ type Resolver struct {
 	Logger *log.Logger
 	//References the DNS response being formed during domain name resolution.
 	response *Message
+	//Flag to enable or disable Trace logs
+	traceLogs bool
 }
 
 // Queries the DNS server and fetches the 't' type record for 'name'.
 func (resolver *Resolver) Resolve(name string, t RecordType) {
-	resolver.response = NewMessage(MSG_RESOLVER_RESPONSE)
+	MsgId := Id()
+	resolver.response = NewMessage(MSG_RESOLVER_RESPONSE, MsgId)
 	resolver.response.NewQuestion(name, t)
 	if t == TYPE_A {
-		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_A)
-		if ok {
-			resolver.Logger.Printf("IPv4 address for the domain name %s has been served from local Cache file.\n", name)
-			resolver.response.AddAnswers(cacheRecords)
-			fmt.Println(resolver.response.String())
-			return
-		}
 		_, err := resolver.resolveA(name)
 		if err != nil {
-			resolver.Logger.Println(err.Error())
+			resolver.Log(err.Error())
 			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
 			fmt.Println(resolver.response.String())
 			return
-		}
-
-		for _, A_RR := range resolver.response.Answers {
-			resolver.Cache.Add(A_RR.Name.Value, A_RR.TTL, A_RR.Class.String(), A_RR.Type.String(), A_RR.GetData())
 		}
 
 		fmt.Println(resolver.response.String())
 	} else if t == TYPE_AAAA {
-		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_AAAA)
-		if ok {
-			resolver.Logger.Printf("IPv6 address for the domain name %s has been served from local Cache file.\n", name)
-			resolver.response.AddAnswers(cacheRecords)
-			fmt.Println(resolver.response.String())
-			return
-		}
 		_, err := resolver.resolveAAAA(name)
 		if err != nil {
-			resolver.Logger.Println(err.Error())
+			resolver.Log(err.Error())
 			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
 			fmt.Println(resolver.response.String())
 			return
-		}
-
-		for _, AAAA_RR := range resolver.response.Answers {
-			resolver.Cache.Add(AAAA_RR.Name.Value, AAAA_RR.TTL, AAAA_RR.Class.String(), AAAA_RR.Type.String(), AAAA_RR.GetData())
 		}
 
 		fmt.Println(resolver.response.String())
 	} else if t == TYPE_TXT {
-		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_TXT)
-		if ok {
-			resolver.Logger.Printf("TXT record for the domain name %s has been served from local Cache file.\n", name)
-			resolver.response.AddAnswers(cacheRecords)
-			fmt.Println(resolver.response.String())
-			return
-		}
 		_, err := resolver.resolveTXT(name)
 		if err != nil {
-			resolver.Logger.Println(err.Error())
+			resolver.Log(err.Error())
 			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
 			fmt.Println(resolver.response.String())
 			return
-		}
-
-		for _, TXT_RR := range resolver.response.Answers {
-			resolver.Cache.Add(TXT_RR.Name.Value, TXT_RR.TTL, TXT_RR.Class.String(), TXT_RR.Type.String(), TXT_RR.GetData())
 		}
 
 		fmt.Println(resolver.response.String())
 	} else if t == TYPE_CNAME {
-		cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_CNAME)
-		if ok {
-			resolver.Logger.Printf("CNAME record for the domain name %s has been served from the local cache file.\n", name)
-			resolver.response.AddAnswers(cacheRecords)
-			fmt.Println(resolver.response.String())
-			return
-		}
-
 		_, err := resolver.resolveCNAME(name)
 		if err != nil {
-			resolver.Logger.Println(err.Error())
+			resolver.Log(err.Error())
 			resolver.response.Header.SetResponseCode(RC_SERVFAIL)
 			fmt.Println(resolver.response.String())
 			return
 		}
 
-		for _, CNAME_RR := range resolver.response.Answers {
-			resolver.Cache.Add(CNAME_RR.Name.Value, CNAME_RR.TTL, CNAME_RR.Class.String(), CNAME_RR.Type.String(), CNAME_RR.GetData())
-		}
-
 		fmt.Println(resolver.response.String())
 	} else {
-		resolver.Logger.Println(ErrInvalidRecordType.Error())
+		resolver.Log(ErrInvalidRecordType.Error())
 		resolver.response.Header.SetResponseCode(RC_NOTIMP)
 		fmt.Println(resolver.response.String())
 	}
@@ -124,10 +82,24 @@ func (resolver *Resolver) addToResolverResponse(name string, resources []Resourc
 	}
 }
 
+//Adds the given resource records to resolver cache.
+func (resolver *Resolver) addToCache(resources []Resource) {
+	for _, RR := range resources {
+		resolver.Cache.Add(RR.Name.Value, RR.TTL, RR.Class.String(), RR.Type.String(), RR.GetData())
+	}
+}
+
 // Resolves the given domain name and returns its A resource records.
 func (resolver *Resolver) resolveA(name string) ([]Resource, error) {
+	cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_A)
+	if ok {
+		resolver.addToResolverResponse(name, cacheRecords)
+		resolver.Log(fmt.Sprintf("A type records for %s have been served from the cache.", name))
+		return cacheRecords, nil
+	}
+
 	nameserver := resolver.getRootServer(TYPE_A)
-	request := NewMessage(MSG_REQUEST)
+	request := NewMessage(MSG_REQUEST, resolver.response.Header.Identifier)
 	request.NewQuestion(name, TYPE_A)
 	for {
 		response := resolver.getResponse(request, nameserver)
@@ -135,11 +107,13 @@ func (resolver *Resolver) resolveA(name string) ([]Resource, error) {
 			CNAME_RRs, exists := response.FindAnswerRecords(TYPE_CNAME)
 			if exists {
 				resolver.addToResolverResponse(name, CNAME_RRs)
+				resolver.addToCache(CNAME_RRs)
 				return resolver.resolveA(CNAME_RRs[0].GetData())
 			}
 
 			A_RRs, _ := response.FindAnswerRecords(TYPE_A)
 			resolver.addToResolverResponse(name, A_RRs)
+			resolver.addToCache(A_RRs)
 			return  A_RRs, nil
 		}
 
@@ -167,8 +141,15 @@ func (resolver *Resolver) resolveA(name string) ([]Resource, error) {
 
 // Resolves the given domain name and returns its AAAA resource records.
 func (resolver *Resolver) resolveAAAA(name string) ([]Resource, error) {
+	cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_AAAA)
+	if ok {
+		resolver.addToResolverResponse(name, cacheRecords)
+		resolver.Log(fmt.Sprintf("AAAA type records for %s have been served from the cache.", name))
+		return cacheRecords, nil
+	}
+
 	nameserver := resolver.getRootServer(TYPE_A)
-	request := NewMessage(MSG_REQUEST)
+	request := NewMessage(MSG_REQUEST, resolver.response.Header.Identifier)
 	request.NewQuestion(name, TYPE_AAAA)
 	for {
 		response := resolver.getResponse(request, nameserver)
@@ -176,11 +157,13 @@ func (resolver *Resolver) resolveAAAA(name string) ([]Resource, error) {
 			CNAME_RRs, exists := response.FindAnswerRecords(TYPE_CNAME)
 			if exists {
 				resolver.addToResolverResponse(name, CNAME_RRs)
+				resolver.addToCache(CNAME_RRs)
 				return resolver.resolveAAAA(CNAME_RRs[0].GetData())
 			}
 
 			AAAA_RRs, _ := response.FindAnswerRecords(TYPE_AAAA)
 			resolver.addToResolverResponse(name, AAAA_RRs)
+			resolver.addToCache(AAAA_RRs)
 			return AAAA_RRs, nil
 		}
 
@@ -208,14 +191,22 @@ func (resolver *Resolver) resolveAAAA(name string) ([]Resource, error) {
 
 // Resolves the given domain name and returns its TXT resource records.
 func (resolver *Resolver) resolveTXT(name string) ([]Resource, error) {
+	cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_TXT)
+	if ok {
+		resolver.addToResolverResponse(name, cacheRecords)
+		resolver.Log(fmt.Sprintf("TXT type records for %s have been served from the cache.", name))
+		return cacheRecords, nil
+	}
+
 	nameserver := resolver.getRootServer(TYPE_A)
-	request := NewMessage(MSG_REQUEST)
+	request := NewMessage(MSG_REQUEST, resolver.response.Header.Identifier)
 	request.NewQuestion(name, TYPE_TXT)
 	for {
 		response := resolver.getResponse(request, nameserver)
 		if response.Header.AnCount > 0 {
 			TXT_RRs, _ := response.FindAnswerRecords(TYPE_TXT)
 			resolver.addToResolverResponse(name, TXT_RRs)
+			resolver.addToCache(TXT_RRs)
 			return TXT_RRs, nil
 		}
 
@@ -241,9 +232,17 @@ func (resolver *Resolver) resolveTXT(name string) ([]Resource, error) {
 	}
 }
 
+// Resolves the given domain name and returns the CNAME resource records.
 func (resolver *Resolver) resolveCNAME(name string) ([]Resource, error) {
+	cacheRecords, ok := resolver.Cache.Resolve(name, TYPE_CNAME)
+	if ok {
+		resolver.addToResolverResponse(name, cacheRecords)
+		resolver.Log(fmt.Sprintf("CNAME type records for %s have been served from the cache.", name))
+		return cacheRecords, nil
+	}
+
 	nameserver := resolver.getRootServer(TYPE_A)
-	request := NewMessage(MSG_REQUEST)
+	request := NewMessage(MSG_REQUEST, resolver.response.Header.Identifier)
 	request.NewQuestion(name, TYPE_CNAME)
 	for {
 		response := resolver.getResponse(request, nameserver)
@@ -251,6 +250,7 @@ func (resolver *Resolver) resolveCNAME(name string) ([]Resource, error) {
 			CNAME_RRs, Exists := response.FindAnswerRecords(TYPE_CNAME)
 			if Exists {
 				resolver.addToResolverResponse(name, CNAME_RRs)
+				resolver.addToCache(CNAME_RRs)
 				return CNAME_RRs, nil
 			} else {
 				return make([]Resource, 0), nil
@@ -311,39 +311,39 @@ func (resolver *Resolver) getResponse(request *Message, ServerAddress string) *M
 	if ServerAddress == "" {
 		return nil
 	}
-	resolver.Logger.Printf("**********************************************\n")
-	resolver.Logger.Printf("DNS Request being sent to server - %s.\n", ServerAddress)
-	resolver.Logger.Printf("**********************************************\n")
-	resolver.Logger.Printf("Request Contents are:\n%s", request.String())
-	resolver.Logger.Printf("**********************************************\n")
+	resolver.Log("**********************************************")
+	resolver.Log(fmt.Sprintf("DNS Request being sent to server - %s.", ServerAddress))
+	resolver.Log("**********************************************")
+	resolver.Log(fmt.Sprintf("Request Contents are:\n%s", request.String()))
+	resolver.Log("**********************************************")
 	SendBuffer := request.Pack()
 	udpConnect := UdpConnect{}
 	err := udpConnect.ConnectTo(ServerAddress, DNS_PORT_NUMBER)
 	if err != nil {
-		resolver.Logger.Println(err.Error())
+		resolver.Log(err.Error())
 		return nil
 	}
 	var response *Message
 	for validResponse := false; !validResponse; {
 		err = udpConnect.Send(SendBuffer)
 		if err != nil {
-			resolver.Logger.Println(err.Error())
+			resolver.Log(err.Error())
 			return nil
 		}
 		receiveBuffer, err := udpConnect.Receive()
 		if err != nil {
-			resolver.Logger.Println(err.Error())
+			resolver.Log(err.Error())
 			return nil
 		}
-		response = NewMessage(MSG_RESPONSE)
+		response = NewMessage(MSG_RESPONSE, 0)
 		response.Unpack(receiveBuffer)
 		validResponse = response.IsResponse(request)
 	}
-	resolver.Logger.Printf("Response received back:\n%s", response.String())
-	resolver.Logger.Printf("**********************************************\n")
+	resolver.Log(fmt.Sprintf("Response received back:\n%s", response.String()))
+	resolver.Log("**********************************************")
 	err = udpConnect.Close()
 	if err != nil {
-		resolver.Logger.Println(err.Error())
+		resolver.Log(err.Error())
 	}
 	return response
 }
@@ -351,4 +351,11 @@ func (resolver *Resolver) getResponse(request *Message, ServerAddress string) *M
 // Syncs the changes from memory to the local cache file.
 func (resolver *Resolver) Close() {
 	resolver.Cache.Sync()
+}
+
+//Logs information to the log file.
+func (resolver *Resolver) Log(message string) {
+	if resolver.traceLogs {
+		resolver.Logger.Println(message)
+	}
 }

@@ -12,7 +12,7 @@ import (
 )
 
 //Returns a new instance of Resolver. In case of any errors, it returns nil instead.
-func NewResolver(RootServersPath string, CacheFilePath string, LogFilePath string) (*Resolver, error) {
+func NewResolver(RootServersPath string, CacheFilePath string, traceLogs bool) (*Resolver, error) {
 	isRootServerAbs := filepath.IsAbs(RootServersPath)
 	isCacheFilePathAbs := filepath.IsAbs(CacheFilePath)
 	if !isRootServerAbs {
@@ -33,13 +33,8 @@ func NewResolver(RootServersPath string, CacheFilePath string, LogFilePath strin
 	if err != nil {
 		return nil, err
 	}
-	logFileHandler, err := os.Create(LogFilePath)
-	if err != nil {
-		return nil, err
-	}
-	resolver.Logger = log.New(logFileHandler, "", log.Ldate | log.Ltime)
-	resolver.Logger.Println("Local records have been moved from file to memory.")
-	resolver.Logger.Println("Root DNS Server records have been moved from BIND file to memory.")
+	resolver.Logger = log.New(os.Stdout, "", log.Ldate | log.Ltime)
+	resolver.traceLogs = traceLogs
 	resolver.response = nil
 	return &resolver, nil
 }
@@ -76,9 +71,9 @@ func UnpackUInt32(buffer []byte) uint32 {
 }
 
 //Creates and returns a new Message instance.
-func NewMessage(mt MessageType) *Message {
+func NewMessage(mt MessageType, MsgId uint16) *Message {
 	message := Message{}
-	message.Initialize(mt)
+	message.Initialize(mt, MsgId)
 	return &message
 }
 
