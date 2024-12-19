@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"flag"
 	"os"
-	"github.com/maheshkumaarbalaji/ask-athena/lib/dns"
-	"github.com/maheshkumaarbalaji/ask-athena/lib/config"
+	"github.com/mkbworks/ask-athena/lib/dns"
+	"github.com/mkbworks/ask-athena/lib/config"
 )
 
 func main() {
