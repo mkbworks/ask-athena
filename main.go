@@ -9,9 +9,22 @@ import (
 )
 
 func main() {
+	flag.Usage = func() {
+		fmt.Println("Usage: ./ask-athena [options] domain name(s)")
+		fmt.Println("Options available:")
+		flag.PrintDefaults()
+	}
+
 	recType := flag.String("type", "A", "the record type to query for each domain name")
 	traceLogs := flag.Bool("trace", false, "Enable/Disable Trace Logs")
+	helpFlag := flag.Bool("help", false, "Show help message")
 	flag.Parse()
+
+	if *helpFlag {
+		flag.Usage()
+		os.Exit(0)
+	}
+
 	names := flag.Args()
 	if len(names) == 0 {
 		fmt.Println("Not enough arguments, must pass in at least one name")
@@ -38,5 +51,6 @@ func main() {
 	} else {
 		fmt.Printf("Given record type is not supported by the DNS resolver.\n")
 	}
+	
 	resolver.Close()
 }

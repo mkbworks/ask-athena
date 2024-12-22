@@ -2,7 +2,7 @@
 
 <img src="https://mkbalaji.pages.dev/project-athena/project-athena.png" style="border-radius:50%" align="right" width="159px" alt="Project Athena logo">
 
-A command-line based Recursive DNS resolver created using Golang. It is compliant with RFC 1035 and supports the following record types.
+A command-line based Recursive DNS resolver created using Golang. It is compliant with `RFC 1035` and supports the following record types.
 
 - **A** record 
 - **AAAA** record
@@ -11,11 +11,13 @@ A command-line based Recursive DNS resolver created using Golang. It is complian
 
 The resolver also supports caching thereby facilitating quick resolution of domain names. The transfer of DNS messages, to and from the DNS server is done over User Datagram Protocol (UDP).
 
+This is my solution to the challenge posted at [Coding Challenges](https://codingchallenges.fyi/challenges/challenge-dns-resolver) to create my own DNS resolver.
+
 ## Example Usage
 
-The **main.go** file in the root directory contains a sample code that can be used to invoke the DNS resolution process for a set of domain names given as command line arguments.
+The `main.go` file in the root directory contains a sample code that can be used to invoke the DNS resolution process for a set of domain names given as command line arguments.
 
-```text
+```go
 recType := flag.String("type", "A", "the record type to query for each domain name")
 traceLogs := flag.Bool("trace", false, "Enable/Disable Trace Logs")
 flag.Parse()
@@ -24,25 +26,25 @@ names := flag.Args()
 
 The above code snippet in main(), parses the command line arguments entered by the user. There are two types of arguments expected - a flag value to denote the type of DNS record being queried and whether or not trace logs are to be printed on screen, and a series of domain names for which the record type must be queried.
 
-```text
+```go
 config.SetupConfig()
 ```
 
 The call to the SetupConfig() sets up the necessary configuration parameters required for creating an instance of the DNS resolver like Root DNS Servers file path and resolver cache file path.
 
-```text
+```go
 resolver, err := dns.NewResolver(config.RootServerFilePath, config.CacheFilePath, *traceLogs)
 ```
 
 These are then used to create a new instance of the resolver by invoking the dns.NewResolver() method.
 
-```text
+```go
 resolver.Resolve(name, resolver.GetRecordType(*t))
 ```
 
 Once the resolver is inititalized, the domain name resolution can be carried out by invoking the resolver.Resolve() function with each of the domain name and its record type. The GetRecordType() method gets the DNS record type object associated with the record type string fetched from the command line.
 
-```text
+```go
 resolver.Close()
 ```
 
@@ -50,17 +52,21 @@ Finally call the Close() method once all the domain names have been resolved. Th
 
 ## Commands and Outputs
 
+This section contains various examples of how `ask-athena` can leveraged to query for DNS records.
+
 ### Example 1
+
+This example queries the `A` records (IPv4 address) for `www.scu.edu`
 
 **Command entered** 
 
-```text
+```bash
 ./ask-athena -type=A www.scu.edu
 ```
 
 **Output printed on screen**
 
-```text
+```bash
 Querying DNS for A type record of www.scu.edu.
 
 ->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 0
@@ -76,15 +82,17 @@ www.scu.edu. 	 30 	 IN 	 A 	 34.107.151.86
 
 ### Example 2
 
+This example queries the `A` records (IPv4 address) for `www.mit.edu`
+
 **Command entered** 
 
-```text
+```bash
 ./ask-athena -type=A www.mit.edu
 ```
 
 **Output printed on screen**
 
-```text
+```bash
 Querying DNS for A type record of www.mit.edu.
 
 ->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 0
@@ -102,15 +110,17 @@ e9566.dscb.akamaiedge.net. 	 20 	 IN 	 A 	 23.203.236.99
 
 ### Example 3
 
+This example queries the `A` records (IPv4 address) for `www.facebook.com`
+
 **Command entered** 
 
-```text
+```bash
 ./ask-athena -type=A www.facebook.com
 ```
 
 **Output printed on screen**
 
-```text
+```bash
 Querying DNS for A type record of www.facebook.com.
 
 ->> HEADER <<- Opcode: QUERY, Status: NOERROR, ID: 0
@@ -127,15 +137,17 @@ star-mini.c10r.facebook.com. 	 60 	 IN 	 A 	 157.240.22.35
 
 ### Example 4
 
+This example queries the `A` records (IPv4 address) for `google.com` with the `-trace` flag enabled to print the trace logs on screen. 
+
 **Command entered** 
 
-```text
+```bash
 ./ask-athena -type=A -trace=true google.com
 ```
 
 **Output printed on screen**
 
-```text
+```bash
 Querying DNS for A type record of google.com.
 
 2024/06/08 19:08:39 **********************************************
