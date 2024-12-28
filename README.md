@@ -13,6 +13,21 @@ The resolver also supports caching thereby facilitating quick resolution of doma
 
 This is my solution to the challenge posted at [Coding Challenges](https://codingchallenges.fyi/challenges/challenge-dns-resolver) to create my own DNS resolver.
 
+## Build the project
+
+To build the project, execute the following commands.
+
+```bash
+# Make the build.sh file an executable by running the below command.
+chmod +x ./build.sh
+
+
+# Below command builds the project and generates the executable file.
+./build.sh 
+```
+
+The **Commands and Outputs** section of this file gives different ways of running the executable file with various command-line options.
+
 ## Example Usage
 
 The `main.go` file in the root directory contains a sample code that can be used to invoke the DNS resolution process for a set of domain names given as command line arguments.
