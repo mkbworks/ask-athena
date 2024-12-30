@@ -71,6 +71,29 @@ This section contains various examples of how `ask-athena` can leveraged to quer
 
 ### Example 1
 
+This example accesses the help option to understand the options available under `ask-athena` command.
+
+**Command entered** 
+
+```bash
+./ask-athena -help
+```
+
+**Output printed on screen**
+
+```bash
+Usage: ./ask-athena [options] domain name(s)
+Options available:
+  -help
+        Show help message
+  -trace
+        Enable/Disable Trace Logs
+  -type string
+        the record type to query for each domain name (default "A")
+```
+
+### Example 2
+
 This example queries the `A` records (IPv4 address) for `www.scu.edu`
 
 **Command entered** 
@@ -95,7 +118,7 @@ www.scu.edu. 	 30 	 IN 	 A 	 34.107.151.86
 
 ```
 
-### Example 2
+### Example 3
 
 This example queries the `A` records (IPv4 address) for `www.mit.edu`
 
@@ -123,7 +146,7 @@ e9566.dscb.akamaiedge.net. 	 20 	 IN 	 A 	 23.203.236.99
 
 ```
 
-### Example 3
+### Example 4
 
 This example queries the `A` records (IPv4 address) for `www.facebook.com`
 
@@ -150,7 +173,7 @@ star-mini.c10r.facebook.com. 	 60 	 IN 	 A 	 157.240.22.35
 
 ```
 
-### Example 4
+### Example 5
 
 This example queries the `A` records (IPv4 address) for `google.com` with the `-trace` flag enabled to print the trace logs on screen. 
 
