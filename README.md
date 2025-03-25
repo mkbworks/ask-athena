@@ -1,6 +1,6 @@
 # Ask Athena
 
-<img src="https://d18b2p1qeig31f.cloudfront.net/project-athena.png" style="border-radius:50%" align="right" width="159px" alt="Project Athena logo">
+<img src="https://58f2c229.citadelofcode.pages.dev/logos/athena.png" style="border-radius:50%" align="right" width="159px" alt="Project Athena logo">
 
 A command-line based Recursive DNS resolver created using Golang. It is compliant with `RFC 1035` and supports the following record types.
 
