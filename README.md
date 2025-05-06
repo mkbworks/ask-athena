@@ -1,17 +1,15 @@
 # Ask Athena
 
-<img src="https://f27c53a3.citadelofcode.pages.dev/logos/athena.png" style="border-radius:50%" align="right" width="159px" alt="Project Athena logo">
+<img src="https://static.citadelofcode.com/ask-athena/logo.png" style="border-radius:50%" align="right" width="159px" alt="Project Athena logo">
 
 A command-line based Recursive DNS resolver created using Golang. It is compliant with `RFC 1035` and supports the following record types.
 
-- **A** record 
+- **A** record
 - **AAAA** record
-- **CNAME** record 
+- **CNAME** record
 - **TXT** record
 
 The resolver also supports caching thereby facilitating quick resolution of domain names. The transfer of DNS messages, to and from the DNS server is done over User Datagram Protocol (UDP).
-
-This is my solution to the challenge posted at [Coding Challenges](https://codingchallenges.fyi/challenges/challenge-dns-resolver) to create my own DNS resolver.
 
 ## Build the project
 
@@ -23,7 +21,7 @@ chmod +x ./build.sh
 
 
 # Below command builds the project and generates the executable file.
-./build.sh 
+./build.sh
 ```
 
 The **Commands and Outputs** section of this file gives different ways of running the executable file with various command-line options.
@@ -73,7 +71,7 @@ This section contains various examples of how `ask-athena` can leveraged to quer
 
 This example accesses the help option to understand the options available under `ask-athena` command.
 
-**Command entered** 
+**Command entered**
 
 ```bash
 ./ask-athena -help
@@ -96,7 +94,7 @@ Options available:
 
 This example queries the `A` records (IPv4 address) for `www.scu.edu`
 
-**Command entered** 
+**Command entered**
 
 ```bash
 ./ask-athena -type=A www.scu.edu
@@ -122,7 +120,7 @@ www.scu.edu. 	 30 	 IN 	 A 	 34.107.151.86
 
 This example queries the `A` records (IPv4 address) for `www.mit.edu`
 
-**Command entered** 
+**Command entered**
 
 ```bash
 ./ask-athena -type=A www.mit.edu
@@ -150,7 +148,7 @@ e9566.dscb.akamaiedge.net. 	 20 	 IN 	 A 	 23.203.236.99
 
 This example queries the `A` records (IPv4 address) for `www.facebook.com`
 
-**Command entered** 
+**Command entered**
 
 ```bash
 ./ask-athena -type=A www.facebook.com
@@ -175,9 +173,9 @@ star-mini.c10r.facebook.com. 	 60 	 IN 	 A 	 157.240.22.35
 
 ### Example 5
 
-This example queries the `A` records (IPv4 address) for `google.com` with the `-trace` flag enabled to print the trace logs on screen. 
+This example queries the `A` records (IPv4 address) for `google.com` with the `-trace` flag enabled to print the trace logs on screen.
 
-**Command entered** 
+**Command entered**
 
 ```bash
 ./ask-athena -type=A -trace=true google.com
